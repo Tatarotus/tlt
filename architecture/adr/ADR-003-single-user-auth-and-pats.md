@@ -1,41 +1,41 @@
-# ADR 003: Single-User v1 with Browser Sessions and PATs
+# ADR 003: Single-User v1 with Minimal Auth Changes
 
 **Status:** Proposed
 
 ## Context
 
-The target v1 scope is explicitly single-user only. The system still needs secure browser access for the GUI and secure programmatic access for the CLI across one or more machines.
+The target v1 scope is explicitly single-user only. The clarified architecture keeps both applications close to their current shape and does not require a new product-wide PAT system just to deliver Kanban-to-`tl` timer integration.
 
 ## Decision
 
-Use a simplified auth model in v1:
+Use the smallest viable auth model in v1:
 
 - browser session auth for the GUI
-- Personal Access Tokens for the CLI
 - one logical user account in v1
-- future-compatible schema for later multi-user expansion
+- database credentials or environment-based secrets for `tl` connectivity
+- optional bridge authentication may use a simple shared secret if a bridge is added
 
 ## Alternatives Considered
 
 1. No authentication because the product is single-user
-2. PAT-only authentication for both GUI and CLI
+2. Introduce PAT issuance and management in v1
 3. Full multi-user role-based access control in v1
 
 ## Pros
 
 - keeps v1 delivery simple
-- supports secure CLI access cleanly
-- avoids premature team/RBAC complexity
+- avoids building token-management features before they are needed
+- matches the clarified goal of minimal `tl` changes
 - remains extensible for future multi-user support
 
 ## Cons
 
 - not suitable for shared workspaces in v1
+- direct database connectivity requires careful secret handling
 - future auth expansion will still require work
-- product documentation must be clear about single-user scope
 
 ## Consequences
 
 - no collaborator or team flows in v1
-- browser and CLI auth paths differ intentionally
-- PAT issuance and revocation become required product features
+- PAT issuance and revocation are not required product features for this phase
+- any future bridge should add only minimal authentication, not a full identity platform

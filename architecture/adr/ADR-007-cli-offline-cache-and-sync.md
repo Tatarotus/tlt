@@ -1,36 +1,36 @@
-# ADR 007: CLI Offline Cache with Background Sync Through the API
+# ADR 007: Defer CLI Offline Redesign and Keep `tl` Behavior Simple in v1
 
 **Status:** Proposed
 
 ## Context
 
-The web application is cloud-first, but the CLI should remain resilient and usable even when offline. At the same time, the Rust API should remain the authoritative time domain and mutation gateway.
+The earlier architecture proposed a new offline cache, sync worker, and replay model for the CLI. That adds substantial complexity and is not required by the clarified scope, which prioritizes keeping `tl` mostly unchanged while moving it to remote PostgreSQL.
 
 ## Decision
 
-The CLI maintains a local SQLite cache and operation queue for offline use. When connectivity returns, a sync worker replays queued operations to the Rust Time API using idempotent requests.
+Do not introduce a new offline cache-and-sync architecture in v1. Keep `tl` behavior as close as possible to today, with the primary required change being PostgreSQL-backed persistence. If offline support becomes necessary later, it should be designed as a separate follow-up after the shared PostgreSQL integration is stable.
 
 ## Alternatives Considered
 
-1. Online-only CLI
-2. Direct Postgres access from the CLI
-3. Full peer-style replication of central data
+1. Introduce cache, queue, and replay logic immediately
+2. Keep `tl` online-first against remote PostgreSQL
+3. Build a separate sync daemon in the first iteration
 
 ## Pros
 
-- preserves CLI usefulness in unreliable network conditions
-- keeps API as the single authoritative mutation path
-- supports a clear future path for local-first enhancements
-- avoids exposing Postgres directly to every CLI environment
+- preserves a minimal-change path for `tl`
+- avoids introducing a large new sync subsystem
+- keeps initial delivery focused on real Kanban-to-`tl` integration
+- leaves room for a later offline design if real usage requires it
 
 ## Cons
 
-- requires sync and conflict handling logic
-- introduces a local cache that can become stale
-- needs visible UX for pending and conflict states
+- `tl` becomes dependent on database connectivity in this phase
+- offline-first behavior is explicitly out of scope for v1
+- future offline design may require additional refactoring later
 
 ## Consequences
 
-- CLI output must distinguish synced, pending, and conflicted state
-- queued operations require idempotency keys
-- replay order and conflict behavior must be explicitly designed
+- no new sync states are required in v1
+- PostgreSQL connectivity and migration replace sync design as the immediate priority
+- any future offline mode should be documented in a separate ADR

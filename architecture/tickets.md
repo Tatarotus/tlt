@@ -1,228 +1,151 @@
 # Implementation Backlog
 
-This backlog is structured as epics and implementation tickets for the merged Kanban + Time Intelligence product.
+This backlog is structured as epics and implementation tickets for the clarified Kanban + Time Logger integration.
 
-## Phase 1 — Foundation
+## Phase 1 — Shared Time Storage
 
 ### EPIC P1: Architecture Foundation
 
-- **P1-T1 — Finalize canonical domain glossary**
+- **P1-T1 — Define remote PostgreSQL contract for `tl`**
   - **Points:** 3
-  - **Description:** Define the final vocabulary for cards, sessions, categories, goals, PATs, audit events, sync queue items, and export jobs.
+  - **Description:** Lock the target PostgreSQL connection model, schema expectations, and migration boundary for the existing `tl` app.
   - **Acceptance Criteria:**
-    - single-user v1 scope explicitly documented
-    - all core entities defined without ambiguity
-    - future multi-user extension points noted
+    - remote connection string is documented via `DATABASE_URL`
+    - SQLite-to-PostgreSQL migration boundary is defined
+    - `tl` tables required for start/stop logging are enumerated
 
-- **P1-T2 — Finalize service ownership matrix**
-  - **Points:** 2
-  - **Description:** Lock the ownership split between Next.js and the Rust Time API.
-  - **Acceptance Criteria:**
-    - timer/report/export ownership unambiguous
-    - Kanban CRUD ownership unambiguous
-    - CLI sync responsibility documented
-
-- **P1-T3 — Define browser auth and PAT lifecycle**
-  - **Points:** 3
-  - **Description:** Specify browser session rules and PAT generation, rotation, revocation, and audit behavior.
-  - **Acceptance Criteria:**
-    - PAT issuance flow documented
-    - revocation flow documented
-    - browser vs CLI auth boundary clear
-
-- **P1-T4 — Define CLI local cache and sync contract**
+- **P1-T2 — Switch `tl` persistence from SQLite to PostgreSQL**
   - **Points:** 5
-  - **Description:** Specify the local cache behavior, queued operations, replay ordering, and sync states.
+  - **Description:** Replace the local SQLite storage implementation with a PostgreSQL-backed one while preserving current CLI behavior as closely as possible.
   - **Acceptance Criteria:**
-    - pending sync semantics defined
-    - idempotency approach defined
-    - conflict states enumerated
+    - `tl start`, `tl stop`, and reporting read from PostgreSQL
+    - existing single-active-session behavior still works
+    - local-only SQLite is no longer the canonical path
+
+- **P1-T3 — Document Kanban-to-`tl` write contract**
+  - **Points:** 3
+  - **Description:** Specify exactly how the Kanban app starts and stops `tl` sessions.
+  - **Acceptance Criteria:**
+    - card title to session description mapping is documented
+    - active-session ownership rule is documented
+    - done/completion auto-stop behavior is documented
 
 ## Phase 2 — Card-Level Timing
 
 ### EPIC P2: Kanban Timing UX
 
-- **P2-T1 — Specify Create & Start Timer flow**
+- **P2-T1 — Add `Start Timer` to each card**
   - **Points:** 3
-  - **Description:** Define UI, copy, and failure handling for immediate timer start when creating a card.
+  - **Description:** Add a visible `Start Timer` control on card tiles and in the task modal.
   - **Acceptance Criteria:**
-    - desktop and mobile patterns documented
-    - recovery behavior specified when timer start fails
+    - each card exposes a `Start Timer` action
+    - modal and board views stay consistent
+    - failure state is visible when timer creation fails
 
-- **P2-T2 — Specify global active timer bar**
+- **P2-T2 — Show active timer state in Kanban UI**
   - **Points:** 3
-  - **Description:** Define the persistent active timer UI across routes.
+  - **Description:** Surface the currently active timer clearly so the user knows which card owns it.
   - **Acceptance Criteria:**
-    - desktop and mobile placement documented
-    - stop/open-card actions defined
-    - syncing/conflict states defined
+    - active card is visually identifiable
+    - stop/open-card actions are available
+    - replace-flow copy is defined when another timer is already active
 
-- **P2-T3 — Specify card tile timing indicators**
+- **P2-T3 — Stop timer from modal or card completion**
   - **Points:** 2
-  - **Description:** Define how active timing and tracked totals appear on card tiles.
+  - **Description:** Finish the session when the user clicks stop or marks the same card done.
   - **Acceptance Criteria:**
-    - running state and non-running state documented
-    - density and truncation rules documented
+    - stop action closes the active `tl` session
+    - card completion auto-stops only matching timers
+    - unrelated active timers remain untouched
 
-- **P2-T4 — Specify card modal Time tab**
-  - **Points:** 5
-  - **Description:** Define history, controls, manual logging, and notes behavior inside the card detail modal.
+- **P2-T4 — Persist card title as session description**
+  - **Points:** 2
+  - **Description:** Ensure the logged session stores the Trello card title as its description value.
   - **Acceptance Criteria:**
-    - `Stop Timer` is the main control when appropriate
-    - session history and totals included
-    - manual add flow defined
+    - card title lands in the `tl` description field or `notes` fallback
+    - session remains readable from the CLI
+    - description value matches the card title at start time
 
-- **P2-T5 — Specify completion-triggered auto-stop**
-  - **Points:** 3
-  - **Description:** Define exact behavior when cards are completed or moved to terminal lists.
-  - **Acceptance Criteria:**
-    - only same-card timers auto-stop
-    - unrelated timers remain active
-    - user feedback copy defined
-
-## Phase 3 — Categories and Insights
+## Phase 3 — Categories and Follow-Ups
 
 ### EPIC P3: Semantic Time Intelligence
 
 - **P3-T1 — Define hybrid label-to-category mapping**
   - **Points:** 5
-  - **Description:** Specify automatic mapping rules and user override behavior.
+  - **Description:** Specify how Kanban labels can later suggest `tl` categories without blocking the basic timer flow.
   - **Acceptance Criteria:**
     - visual labels preserved
-    - hierarchical categories supported
-    - mapping settings documented
+    - default category behavior documented
+    - mapping settings documented for a later phase
 
-- **P3-T2 — Specify category picker UX**
+- **P3-T2 — Define read-only reporting touchpoints in Kanban**
   - **Points:** 3
-  - **Description:** Define the explicit category selection and override flow on cards.
+  - **Description:** Decide whether the Kanban app needs minimal visibility into recent `tl` sessions before building full dashboards.
   - **Acceptance Criteria:**
-    - suggestions shown but not forced
-    - hierarchical category selection supported
+    - required read-only widgets are listed
+    - explicit non-goals are documented for v1
 
-- **P3-T3 — Define Time Management / Progress & Feedback IA**
-  - **Points:** 5
-  - **Description:** Design the navigation and page layout for the time dashboard.
-  - **Acceptance Criteria:**
-    - Today, Progress, Feedback, History, Exports, Batch Log included
-    - mobile and desktop structure documented
-
-- **P3-T4 — Define GUI equivalents for report/compare/review**
-  - **Points:** 5
-  - **Description:** Translate core `tl` insights into GUI modules and filters.
-  - **Acceptance Criteria:**
-    - each targeted CLI insight has a GUI equivalent
-    - date presets and filters documented
-
-- **P3-T5 — Define goals and streak widgets**
-  - **Points:** 3
-  - **Description:** Specify setup and display patterns for goals and streaks.
-  - **Acceptance Criteria:**
-    - goal editing flow documented
-    - streak display and dashboard placement documented
-
-## Phase 4 — Rust API and CLI
+## Phase 4 — Integration Reliability
 
 ### EPIC P4: Shared Time Domain
 
-- **P4-T1 — Define Rust Time API contract**
+- **P4-T1 — Implement direct Kanban-to-PostgreSQL timer writes**
   - **Points:** 5
-  - **Description:** Specify endpoints, auth, idempotency, and error semantics.
+  - **Description:** Add the minimal server-side integration in the Kanban app to start and stop `tl` sessions in PostgreSQL.
   - **Acceptance Criteria:**
-    - start/stop/manual/report/export endpoints defined
-    - PAT auth requirements defined
-    - idempotency behavior explicit
+    - start and stop writes succeed against the remote database
+    - single-active-timer rule is respected
+    - card title is persisted as session description
 
-- **P4-T2 — Define Rust module split**
+- **P4-T2 — Evaluate need for a lightweight VPS timer bridge**
   - **Points:** 3
-  - **Description:** Specify the split between core domain logic, HTTP service, and CLI client layers.
+  - **Description:** Decide whether direct database integration is sufficient or whether a very small service should mediate timer writes.
   - **Acceptance Criteria:**
-    - ownership per module documented
-    - no duplicated time logic planned in TypeScript
-
-- **P4-T3 — Define CLI online behavior**
-  - **Points:** 2
-  - **Description:** Specify online command semantics and expected outputs.
-  - **Acceptance Criteria:**
-    - command parity list approved
-    - expected success/error outputs documented
-
-- **P4-T4 — Define CLI offline behavior**
-  - **Points:** 5
-  - **Description:** Specify local command behavior and queued replay semantics.
-  - **Acceptance Criteria:**
-    - pending sync behavior defined
-    - offline `status` semantics defined
-    - replay ordering defined
-
-- **P4-T5 — Define sync conflict resolution UX**
-  - **Points:** 5
-  - **Description:** Specify conflict classes and operator guidance when replay fails.
-  - **Acceptance Criteria:**
-    - conflict classes enumerated
-    - terminal output guidance defined
-    - no silent destructive resolution
+    - direct-vs-bridge tradeoff is documented
+    - if a bridge is chosen, its commands stay intentionally small
+    - no full platform rewrite is introduced accidentally
 
 ## Phase 5 — Migration Planning
 
 ### EPIC P5: Legacy Consolidation
 
-- **P5-T1 — Define Kanban migration mapping**
-  - **Points:** 3
-  - **Description:** Specify mapping from current workspaces, boards, lists, tasks, and labels into the new model.
-  - **Acceptance Criteria:**
-    - field mapping complete
-    - label handling defined
-
-- **P5-T2 — Define `tl` migration mapping**
+- **P5-T1 — Define `tl` SQLite-to-PostgreSQL migration mapping**
   - **Points:** 5
-  - **Description:** Specify mapping from sessions, goals, and local config into the new model.
+  - **Description:** Specify how existing `tl` sessions, goals, and configuration move from SQLite into PostgreSQL.
   - **Acceptance Criteria:**
     - category mapping rules defined
     - active session import policy defined
     - unsupported cases documented
 
-- **P5-T3 — Define migration validation checklist**
+- **P5-T2 — Define migration validation checklist**
   - **Points:** 3
   - **Description:** Specify counts, integrity checks, and reconciliation outputs for migration.
   - **Acceptance Criteria:**
     - go/no-go checks documented
     - overlap validation included
 
-- **P5-T4 — Define cutover runbook**
+- **P5-T3 — Define cutover runbook**
   - **Points:** 3
   - **Description:** Specify freeze, final import, smoke checks, and rollback decision points.
   - **Acceptance Criteria:**
     - cutover steps sequenced
     - rollback triggers defined
 
-## Phase 6 — Operability and Exports
+## Phase 6 — Operability
 
 ### EPIC P6: Production Readiness
 
-- **P6-T1 — Define export product behavior**
+- **P6-T1 — Define monitoring for remote PostgreSQL and timer writes**
   - **Points:** 3
-  - **Description:** Specify CSV, JSON, and Obsidian export entry points and user flows.
+  - **Description:** Specify how to detect failed timer writes, broken connectivity, and stuck active sessions.
   - **Acceptance Criteria:**
-    - GUI and CLI export paths documented
-    - expected outputs defined
+    - health checks for database connectivity defined
+    - timer write failures are observable
+    - orphan active-session detection is defined
 
-- **P6-T2 — Define audit event taxonomy**
-  - **Points:** 3
-  - **Description:** Specify which actions create audit events and what metadata must be captured.
-  - **Acceptance Criteria:**
-    - timer and PAT actions audited
-    - export actions audited
-
-- **P6-T3 — Define monitoring and alerting requirements**
-  - **Points:** 3
-  - **Description:** Specify service health checks, metrics, and alerts.
-  - **Acceptance Criteria:**
-    - Next.js and Rust API health checks defined
-    - sync and conflict metrics defined
-
-- **P6-T4 — Define backup and recovery behavior**
+- **P6-T2 — Define backup and recovery behavior**
   - **Points:** 2
-  - **Description:** Distinguish system backups from user-facing exports and define recovery expectations.
+  - **Description:** Define recovery expectations for the shared `tl` PostgreSQL database.
   - **Acceptance Criteria:**
     - backup vs export separation documented
     - restore testing requirement documented

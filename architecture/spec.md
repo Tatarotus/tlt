@@ -1,26 +1,29 @@
 # Unified Product Architecture Specification
 
-## Kanban + Time Intelligence Platform
+## Kanban + Time Logger Integration
 
 ### v1 Scope
 
 - single-user only
-- cloud-first Next.js GUI
-- Rust HTTP API with PAT authentication for CLI
+- Next.js Kanban app remains the primary board UI
+- `tl` remains mostly unchanged as the time-tracking system
+- `tl` switches from local SQLite to remote PostgreSQL
 - exactly one active timer globally
 - auto-stop only when the active timer belongs to the completed card
-- color labels may suggest categories, but hierarchical categories remain independently assignable
-- `tl` CLI supports local cache with background sync
+- each Kanban card exposes a `Start Timer` action
+- stopping a timer or marking a card done logs the session into the `tl` database
+- the Trello card title is used as the logged session description
+- an optional small VPS-side listener/service may be added if it improves timer reliability
 
 ---
 
 ## 1. Executive Summary
 
-The merged product will keep the existing Next.js Kanban application as the primary user experience and integrate the `tl` time-logging domain through a thin Rust HTTP API running on the VPS. PostgreSQL becomes the canonical datastore for boards, cards, sessions, categories, goals, and exports. The web application stays cloud-first, while the CLI remains first-class by using PAT-authenticated API access plus a local cache and background sync model for offline operation.
+The product keeps the existing Next.js Kanban application as the primary user experience and keeps the existing Rust `tl` application mostly intact. The main required infrastructure change is moving `tl` from local SQLite to a remote PostgreSQL database on the VPS. The Kanban app then integrates with `tl` by starting and stopping timer sessions that are stored in that PostgreSQL database, using the card title as the logged session description.
 
-- One coherent product for planning, execution, and reflection
-- One authoritative timer/reporting engine shared by GUI and CLI
-- A simpler v1 delivery path through single-user scope and explicit domain ownership
+- One shared time-tracking dataset for CLI and Kanban actions
+- Minimal change to the proven `tl` workflow and codebase
+- Optional room for a small server-side bridge without requiring a full platform rewrite
 
 ---
 
@@ -29,24 +32,25 @@ The merged product will keep the existing Next.js Kanban application as the prim
 ### Goals
 
 1. Preserve all current Kanban features.
-2. Preserve all current `tl` analytical capabilities or provide equivalent GUI workflows.
-3. Enable timing directly from cards.
-4. Support immediate timer start during card creation.
+2. Preserve current `tl` behavior as much as possible.
+3. Switch `tl` storage from local SQLite to remote PostgreSQL.
+4. Enable timing directly from Kanban cards.
 5. Stop timers automatically when the matching card is completed.
-6. Keep `tl` usable for power users.
-7. Use one central database on the VPS.
+6. Use the Trello card title as the logged session description.
+7. Keep room for an optional VPS-side timer bridge if direct integration proves brittle.
 
 ### Confirmed Constraints
 
 | Area | Decision |
 |---|---|
 | User scope | Single-user only in v1 |
-| GUI | Cloud-first |
-| CLI backend | Rust HTTP API with PAT auth |
+| GUI | Existing Next.js Kanban app |
+| `tl` change scope | Minimal; switch persistence to remote PostgreSQL |
+| Time integration path | Direct PostgreSQL writes first, optional thin bridge second |
 | Active timer policy | Exactly one active timer globally |
 | Auto-stop behavior | Only for timers linked to the completed card |
-| Labels vs categories | Hybrid model with suggestion + override |
-| CLI offline mode | Supported via local cache + background sync |
+| Session description | Use the Trello card title |
+| Database | Remote PostgreSQL on VPS |
 
 ---
 
@@ -54,7 +58,7 @@ The merged product will keep the existing Next.js Kanban application as the prim
 
 ### Kanban application
 
-The current web application is a solid single-user Kanban experience with workspaces, boards, lists, tasks, drag-and-drop, optimistic updates, and a detailed task modal. It is built on Next.js App Router with Drizzle and local SQLite.
+The current web application is a solid single-user Kanban experience with workspaces, boards, lists, tasks, drag-and-drop, optimistic updates, and a detailed task modal. It is built on Next.js App Router and already has the right user-facing surface for timer buttons and completion hooks.
 
 **Strengths**
 - polished interaction model
@@ -62,13 +66,12 @@ The current web application is a solid single-user Kanban experience with worksp
 - responsive UI with optimistic updates
 
 **Weaknesses**
-- local SQLite is not suitable as shared product storage
 - time tracking does not exist as a native domain
 - current auth model is minimal
 
 ### `tl` CLI
 
-The Rust CLI provides the strongest business logic in the combined system: real-time timing, manual logging, overlap validation, reporting, goals, streaks, reviews, exports, and backup-oriented behavior.
+The Rust CLI provides the existing time-tracking domain: real-time timing, manual logging, overlap validation, reporting, goals, streaks, reviews, exports, and backup-oriented behavior.
 
 **Strengths**
 - strong domain logic
@@ -76,9 +79,9 @@ The Rust CLI provides the strongest business logic in the combined system: real-
 - robust validation principles
 
 **Weaknesses**
-- local-only assumptions
+- local SQLite storage assumption
 - no GUI integration
-- no central identity or cloud source of truth
+- no shared remote datastore yet
 
 ---
 
@@ -92,45 +95,36 @@ flowchart TB
     end
 
     subgraph Application Layer
-        NextApp[Next.js App Router\nBoards, Cards, Dashboard, Auth UI]
-        TimeAPI[Rust Time API\nAuthoritative timer + reporting domain]
-        SyncWorker[CLI Local Sync Worker]
-        SSE[SSE Stream\nActive timer + dashboard refresh]
+        NextApp[Next.js App Router\nBoards, Cards, Modal, Actions]
+        Bridge[Optional Timer Bridge\nstart, stop, active-state]
+        TL[tl Rust App\nexisting time domain]
     end
 
     subgraph Storage Layer
-        PG[(PostgreSQL on VPS)]
-        CLIStore[(Local CLI Cache\nSQLite)]
-        ExportStore[Export Storage]
+        TLPG[(Remote PostgreSQL for tl)]
+        KanbanStore[(Existing Kanban store)]
     end
 
     Web --> NextApp
-    NextApp --> TimeAPI
-    NextApp --> PG
-    Web --> SSE
-    SSE --> TimeAPI
-
-    CLI --> CLIStore
-    CLI --> SyncWorker
-    SyncWorker --> TimeAPI
-
-    TimeAPI --> PG
-    TimeAPI --> ExportStore
+    NextApp --> KanbanStore
+    NextApp --> TLPG
+    NextApp --> Bridge
+    Bridge --> TLPG
+    CLI --> TL
+    TL --> TLPG
 ```
 
 ### Ownership model
 
-| Responsibility | Next.js | Rust Time API |
+| Responsibility | Next.js | `tl` / optional bridge |
 |---|---|---|
 | Browser auth UX | Yes | No |
 | Boards/lists/cards CRUD | Yes | No |
-| Timer semantics | No | Yes |
+| Start/stop timer from card UI | Yes | Yes |
+| Canonical timer/session semantics | No | Yes |
 | Manual/batch logging | No | Yes |
-| Reports/compare/review | No | Yes |
-| Goals/streaks | No | Yes |
-| Export generation | No | Yes |
-| Dashboard rendering | Yes | No |
-| CLI sync reconciliation | No | Yes |
+| Reports/review/exports | No | Yes |
+| Enforce one active timer | No | Yes |
 
 ---
 
@@ -138,20 +132,20 @@ flowchart TB
 
 ## 5.1 Card Timing
 
-### Create task and optionally start timer
+### Start timer from a card
 
-When creating a card, the user may choose `Create` or `Create & Start Timer`.
+Each Kanban card should expose a `Start Timer` button both on the card surface and inside the task detail modal.
 
 **Flow**
-1. User submits the card form.
-2. Next.js creates the card.
-3. If immediate timing is selected, Next.js sends a start command to the Rust API.
-4. The active timer bar appears.
-5. The card displays an active timer pill.
+1. User opens a card or sees it on the board.
+2. User clicks `Start Timer`.
+3. The Kanban app starts a new active session in the `tl` PostgreSQL database, either directly or through the optional bridge.
+4. The session description is set to the card title.
+5. The card and modal show that the timer is running.
 
 ### Single global active timer
 
-Only one timer may be active at a time across the whole system.
+Only one timer may be active at a time across the whole system so Kanban and `tl` stay consistent.
 
 **Behavior when another timer exists**
 - UI must clearly show the existing active timer.
@@ -168,12 +162,19 @@ When a card is moved to a terminal list or explicitly marked completed:
 
 - if the active timer is linked to that card, stop and log it automatically
 - if the active timer is unrelated, do not stop it
+- the resulting logged session keeps the card title as its description
+
+### Session mapping rules
+
+- `description` maps to the Trello card title
+- if `tl` continues to use `notes`, the card title should be stored there until a dedicated description field exists
+- category mapping may start with a simple default such as `kanban` and evolve later through label/category rules
 
 ---
 
 ## 5.2 Time Management / Progress & Feedback
 
-The Kanban UI must include a dedicated section for time intelligence.
+The richer `tl` reporting surface remains valuable, but it is not required to block the initial Kanban timer integration. Read-only views or deeper GUI reporting can follow once start/stop logging is stable.
 
 ### Dashboard sections
 
@@ -206,7 +207,7 @@ The Kanban UI must include a dedicated section for time intelligence.
 
 ### Hybrid mapping
 
-Kanban color labels stay lightweight and visual. They may suggest a time category, but they do not replace explicit hierarchical categories.
+Kanban color labels may later suggest `tl` categories, but this is a follow-up concern rather than a blocker for starting and stopping timers from cards.
 
 ### Rules
 
@@ -220,26 +221,13 @@ Kanban color labels stay lightweight and visual. They may suggest a time categor
 
 ## 5.4 CLI Behavior
 
-### Online mode
+### Remote database mode
 
-In online mode, CLI commands talk to the Rust API using a PAT.
+`tl` should talk to remote PostgreSQL instead of local SQLite.
 
-### Offline mode
+### Compatibility goal
 
-In offline mode, the CLI writes to a local cache and operation queue, then syncs later.
-
-### Sync expectations
-
-- queued operations are replayed in order
-- every replayed mutation uses an idempotency key
-- conflicts are visible to the user
-- no silent destructive conflict resolution
-
-### Status states
-
-- synced
-- pending sync
-- conflict
+The CLI should preserve its current UX and behavior as much as possible while only changing the storage backend.
 
 ---
 
@@ -249,12 +237,12 @@ In offline mode, the CLI writes to a local cache and operation queue, then syncs
 
 - board and card interactions remain optimistic
 - timer commands show immediate UI feedback
-- SSE updates reconcile active timer and dashboard refreshes
+- active timer state may be refreshed by polling, direct reads, or a small listener if added
 
 ### CLI
 
-- local state is explicit when not yet synced
-- offline and conflict states are surfaced in terminal output
+- CLI behavior remains close to current `tl`
+- no new sync UX is required in this phase
 
 ---
 
