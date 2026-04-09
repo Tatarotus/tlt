@@ -29,3 +29,6 @@ These documents define the v1 target architecture:
 
 - This package intentionally contains no migration SQL and no implementation code.
 - ADRs use `Proposed` status until explicitly accepted.
+
+the link connection to the postgress db is postgresql://sam:strongpassword@smre.run.place:5432/mydb
+feel free to change or create a new db anytime
