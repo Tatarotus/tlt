@@ -9,7 +9,7 @@ interface ViewTabsProps {
 
 export function ViewTabs({ workspaceSlug, currentView }: ViewTabsProps) {
   return (
-    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
       <Link
         href={`/${workspaceSlug}`}
         className={`

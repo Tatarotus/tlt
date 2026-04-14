@@ -14,9 +14,10 @@ interface WorkspaceHeaderProps {
   description?: string;
   backHref?: string;
   backLabel?: string;
+  children?: React.ReactNode;
 }
 
-export function WorkspaceHeader({ id, name, slug, description, backHref, backLabel = "Back" }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ id, name, slug, description, backHref, backLabel = "Back", children }: WorkspaceHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newName, setNewName] = useState(name);
   const [newDescription, setNewDescription] = useState(description || "");
@@ -55,7 +56,7 @@ export function WorkspaceHeader({ id, name, slug, description, backHref, backLab
   };
 
   return (
-    <div className="bg-white border-b border-gray-200 py-10 mb-8 relative">
+    <div className="bg-white border-b border-gray-200 mb-8 relative">
       <Container>
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-start">
@@ -79,6 +80,7 @@ export function WorkspaceHeader({ id, name, slug, description, backHref, backLab
                   </p>
                 )}
               </div>
+              {children}
             </div>
 
             <button 

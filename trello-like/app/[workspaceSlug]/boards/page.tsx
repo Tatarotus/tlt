@@ -53,16 +53,14 @@ export default async function BoardsPage({ params }: { params: Promise<{ workspa
         id={workspace.id}
         name={workspace.name}
         slug={workspace.slug}
-        description={workspace.description || "Project management and team collaboration."}
+        description={workspace.description || ""}
         backHref="/"
         backLabel="All Workspaces"
-      />
+      >
+        <ViewTabs workspaceSlug={workspaceSlug} currentView="kanban" />
+      </WorkspaceHeader>
 
       <Container>
-        <div className="mb-6">
-          <ViewTabs workspaceSlug={workspaceSlug} currentView="kanban" />
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
           {workspace.boards.map((board) => (
             <BoardCard
