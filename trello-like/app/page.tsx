@@ -11,6 +11,7 @@ import { getSession } from "@/lib/session";
 import { eq } from "drizzle-orm";
 import { workspaces } from "@/db/schema";
 import { redirect } from "next/navigation";
+import { TimeDashboard } from "./components/TimeDashboard";
 
 export default async function Home() {
   const session = await getSession();
@@ -38,6 +39,8 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 pb-24 font-sans p-6 max-w-[1600px] mx-auto w-full">
+      <TimeDashboard />
+      
       <div className="bg-white border border-gray-200 py-12 px-8 mb-8 rounded-lg shadow-sm">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold text-gray-900">

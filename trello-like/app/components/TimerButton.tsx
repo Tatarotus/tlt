@@ -59,23 +59,29 @@ export function TimerButton({ cardId, cardTitle, className }: TimerButtonProps) 
   }, [showPopover]);
 
   const handleStartClick = async () => {
-    if (isTimerRunningElsewhere && category.trim()) {
+    const currentCategory = category.trim() || cardTitle?.trim();
+    
+    if (isTimerRunningElsewhere && currentCategory) {
       setConfirmTimerCardTitle(activeTimer?.category || "another task");
       setShowConfirmSwitch(true);
       return;
     }
     
-    if (!category.trim()) {
+    if (!currentCategory) {
       setShowPopover(true);
       return;
     }
     
-    await handleStart();
+    await startTimer(currentCategory, cardId);
+    setCategory("");
+    setShowPopover(false);
+    setShowConfirmSwitch(false);
   };
 
   const handleStart = async () => {
-    if (!category.trim()) return;
-    await startTimer(category, cardId);
+    const currentCategory = category.trim() || cardTitle?.trim();
+    if (!currentCategory) return;
+    await startTimer(currentCategory, cardId);
     setCategory("");
     setShowPopover(false);
     setShowConfirmSwitch(false);
@@ -88,8 +94,9 @@ export function TimerButton({ cardId, cardTitle, className }: TimerButtonProps) 
 
   const handleConfirmSwitch = async () => {
     await stopTimer();
-    if (category.trim()) {
-      await startTimer(category, cardId);
+    const currentCategory = category.trim() || cardTitle?.trim();
+    if (currentCategory) {
+      await startTimer(currentCategory, cardId);
       setCategory("");
     } else {
       setShowPopover(true);

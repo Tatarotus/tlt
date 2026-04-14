@@ -390,7 +390,7 @@ return (
                 </section>
 <section className="pt-4 space-y-2">
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Timer</h4>
-                <TimerButton cardId={currentTask.id} className="w-full" />
+                <TimerButton cardId={currentTask.id} cardTitle={currentTask.title} className="w-full" />
               </section>
 
               <section className="pt-4 space-y-2">

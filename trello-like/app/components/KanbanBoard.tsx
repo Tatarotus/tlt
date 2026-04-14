@@ -18,6 +18,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
 import { createTask, deleteTask, updateListTitle, createList, deleteList, reorderTasks, updateTask } from '../actions/task-actions';
+import { useTimer } from '@/lib/timer-context';
 
 type Task = { 
   id: string; 
@@ -169,6 +170,8 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
   const [isMounted, setIsMounted] = useState(false);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListTitle, setNewListTitle] = useState("");
+  
+  const { startTimer, stopTimer, activeTimer } = useTimer();
   
   // Sensors for better drag detection
   const sensors = useSensors(
@@ -415,12 +418,20 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
                     order: index,
                     listId: overContainer
                 }));
-                 // Also persist source list to close gaps? Not strictly required if backend doesn't care about gaps, 
-                 // but good for consistency. For now, just updating destination is critical.
-                 // Actually, let's update both just in case.
-                 const sourceList = lists.find(l => l.id === activeContainer); // This might be empty now? 
-                 // Wait, activeContainer is where it STARTED. 'lists' state has it in 'overContainer' now.
-                 // So we just need to update the container where the item ENDED UP.
+                 // Auto-timer logic
+                 const normalizedTitle = destList.title.toLowerCase();
+                 if (normalizedTitle === "in progress") {
+                   if (activeTimer?.cardId !== activeId) {
+                     const task = findTask(activeId);
+                     if (task) {
+                       await startTimer(task.title, activeId);
+                     }
+                   }
+                 } else if (normalizedTitle === "done") {
+                   if (activeTimer?.cardId === activeId) {
+                     await stopTimer(activeId);
+                   }
+                 }
                  
                  await reorderTasks(updatedTasks);
             }
