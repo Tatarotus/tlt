@@ -6,14 +6,28 @@ import { eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 import { createTask } from './task-actions';
 
-const SAMBA_KEY = process.env.SAMBA_KEY;
-const SAMBA_API_URL = "https://api.sambanova.ai/v1/chat/completions";
+const API_KEY = process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
 
-const MODELS = [
-  "Meta-Llama-3.3-70B-Instruct",
-  "Qwen3-32B",
-  "DeepSeek-R1-Distill-Llama-70B"
-];
+function getEndpoints(): string[] {
+  const envEndpoints = process.env.AI_API_URLS;
+  if (envEndpoints) {
+    return envEndpoints.split(',').map(u => u.trim()).filter(u => u.length > 0);
+  }
+  const singleUrl = process.env.AI_API_URL || process.env.OPENAI_API_URL;
+  if (singleUrl) return [singleUrl];
+  throw new Error("AI_API_URLS or AI_API_URL is not configured in .env");
+}
+
+function getModels(): string[] {
+  const envModels = process.env.AI_MODELS;
+  if (envModels) {
+    return envModels.split(',').map(m => m.trim()).filter(m => m.length > 0);
+  }
+  throw new Error("AI_MODELS is not configured in .env");
+}
+
+const API_URLS = getEndpoints();
+const MODELS = getModels();
 
 function extractJSON(content: string) {
   let cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
@@ -36,39 +50,43 @@ function extractJSON(content: string) {
   }
 }
 
-async function callSambaAI(systemPrompt: string, userPrompt: string) {
-  if (!SAMBA_KEY) throw new Error("SAMBA_KEY is not configured.");
+async function callAI(systemPrompt: string, userPrompt: string) {
+  if (!API_KEY) throw new Error("AI_API_KEY (or OPENAI_API_KEY) is not configured.");
 
   let lastError: any = null;
-  for (const model of MODELS) {
-    try {
-      const response = await fetch(SAMBA_API_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${SAMBA_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          stream: false,
-          model: model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ]
-        }),
-      });
+  
+  for (const apiUrl of API_URLS) {
+    for (const model of MODELS) {
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            stream: false,
+            model: model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ]
+          }),
+        });
 
-      if (response.status === 429) continue;
-      if (!response.ok) continue;
+        if (response.status === 429) continue;
+        if (!response.ok) continue;
 
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } catch (err) {
-      lastError = err;
-      continue;
+        const data = await response.json();
+        return data.choices[0].message.content;
+      } catch (err) {
+        lastError = err;
+        continue;
+      }
     }
   }
-  throw new Error(lastError?.message || "AI models unavailable.");
+  
+  throw new Error(lastError?.message || "All AI endpoints and models unavailable.");
 }
 
 async function getTaskContext(taskId: string) {
@@ -99,26 +117,23 @@ function formatContextPrompt(task: any) {
     .filter((b: any) => b.id !== board.id)
     .map((b: any) => b.name)
     .join(', ');
-  
+
   return `Workspace Context:
-- Name: ${workspace.name}
-- Slug: ${workspace.slug}
-- Description: ${workspace.description || "N/A"}
-- Other Boards in Workspace: ${otherBoards || "None"}
+  - Name: ${workspace.name}
+  - Slug: ${workspace.slug}
+  - Description: ${workspace.description || "N/A"}
+  - Other Boards in Workspace: ${otherBoards || "None"}
 
-Board Context:
-- Name: ${board.name}
+  Board Context:
+  - Name: ${board.name}
 
-Task Context:
-- Title: ${task.title}
-- Current Description: ${task.description || "None"}
-- Current Labels: ${task.labels?.join(', ') || "None"}
-- Due Date: ${task.dueDate || "Not set"}`;
+  Task Context:
+  - Title: ${task.title}
+  - Current Description: ${task.description || "None"}
+  - Current Labels: ${task.labels?.join(', ') || "None"}
+  - Due Date: ${task.dueDate || "Not set"}`;
 }
 
-/**
- * Returns proposed optimization data WITHOUT saving to database.
- */
 export async function aiMakeTaskPerfect(taskId: string) {
   const session = await getSession();
   if (!session) return { success: false, error: "Unauthorized" };
@@ -128,17 +143,17 @@ export async function aiMakeTaskPerfect(taskId: string) {
     if (!task) return { success: false, error: "Task not found" };
 
     const systemPrompt = `You are a project optimization expert. Use the provided workspace and board context to tailor your suggestions. Propose a professional title, expanded description, 3-5 labels, and 4-6 sub-tasks.
-Respond with NOTHING except a JSON object:
-{
-  "title": "Optimized Title",
-  "description": "Expanded description...",
-  "labels": ["label1", "label2", ...],
-  "subtasks": ["subtask 1", "subtask 2", ...],
-  "suggestedDueDate": "YYYY-MM-DD"
-}`;
+    Respond with NOTHING except a JSON object:
+    {
+    "title": "Optimized Title",
+    "description": "Expanded description...",
+    "labels": ["label1", "label2", ...],
+    "subtasks": ["subtask 1", "subtask 2", ...],
+    "suggestedDueDate": "YYYY-MM-DD"
+    }`;
 
     const userPrompt = formatContextPrompt(task);
-    const response = await callSambaAI(systemPrompt, userPrompt);
+    const response = await callAI(systemPrompt, userPrompt);
     const data = extractJSON(response);
 
     return { success: true, data };
@@ -147,9 +162,6 @@ Respond with NOTHING except a JSON object:
   }
 }
 
-/**
- * Returns rewritten content WITHOUT saving to database.
- */
 export async function aiRewriteTask(taskId: string, tone: 'professional' | 'concise' | 'friendly') {
   const session = await getSession();
   if (!session) return { success: false, error: "Unauthorized" };
@@ -160,7 +172,7 @@ export async function aiRewriteTask(taskId: string, tone: 'professional' | 'conc
 
     const systemPrompt = `Rewrite this task to be ${tone}. Use the provided workspace and board context for tone and relevance. Respond with NOTHING except JSON: { "title": "...", "description": "..." }`;
     const userPrompt = formatContextPrompt(task);
-    const response = await callSambaAI(systemPrompt, userPrompt);
+    const response = await callAI(systemPrompt, userPrompt);
     const data = extractJSON(response);
 
     return { success: true, data };
@@ -179,7 +191,7 @@ export async function aiWriteStatusUpdate(taskId: string) {
 
     const systemPrompt = `Write a professional status update. Use the workspace and board context to make it relevant to the project. Respond with NOTHING except JSON: { "update": "markdown text" }`;
     const userPrompt = formatContextPrompt(task);
-    const response = await callSambaAI(systemPrompt, userPrompt);
+    const response = await callAI(systemPrompt, userPrompt);
     const data = extractJSON(response);
 
     return { success: true, update: data.update };
@@ -188,9 +200,6 @@ export async function aiWriteStatusUpdate(taskId: string) {
   }
 }
 
-/**
- * Returns suggested tags WITHOUT saving to database.
- */
 export async function aiSuggestTags(taskId: string) {
   const session = await getSession();
   if (!session) return { success: false, error: "Unauthorized" };
@@ -201,7 +210,7 @@ export async function aiSuggestTags(taskId: string) {
 
     const systemPrompt = `Suggest 4-7 relevant labels. Map urgency to "Red", "Yellow", "Green", "Blue", or "Purple". Use workspace/board context for relevance. Respond with NOTHING except JSON: {"tags": ["Tag1", ...]}`;
     const userPrompt = formatContextPrompt(task);
-    const response = await callSambaAI(systemPrompt, userPrompt);
+    const response = await callAI(systemPrompt, userPrompt);
     const { tags } = extractJSON(response);
 
     return { success: true, tags };
@@ -210,17 +219,14 @@ export async function aiSuggestTags(taskId: string) {
   }
 }
 
-/**
- * Helper to batch create subtasks (called only when user saves).
- */
 export async function createBatchSubtasks(parentId: string, listId: string, titles: string[]) {
-    const session = await getSession();
-    if (!session) return { success: false };
+  const session = await getSession();
+  if (!session) return { success: false };
 
-    const created = [];
-    for (let i = 0; i < titles.length; i++) {
-        const res = await createTask(titles[i], listId, i, parentId);
-        if (res.success && res.task) created.push(res.task);
-    }
-    return { success: true, subtasks: created };
+  const created = [];
+  for (let i = 0; i < titles.length; i++) {
+    const res = await createTask(titles[i], listId, i, parentId);
+    if (res.success && res.task) created.push(res.task);
+  }
+  return { success: true, subtasks: created };
 }

@@ -1,6 +1,8 @@
-"use client"
+"use client";
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useTimer } from '@/lib/timer-context';
+import { useEffect, useState } from 'react';
 
 interface Task {
   id: string;
@@ -28,14 +30,42 @@ const LABEL_COLORS: Record<string, string> = {
   'Purple': 'bg-purple-500',
 };
 
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+  return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+}
+
 export function TaskCard({ task, onClick }: TaskCardProps) {
-  const { 
-    attributes, 
-    listeners, 
-    setNodeRef, 
-    transform, 
-    transition, 
-    isDragging 
+  const { activeTimer } = useTimer();
+  const [elapsed, setElapsed] = useState(0);
+  
+  const isTimerActiveForCard = activeTimer?.cardId === task.id;
+  
+  useEffect(() => {
+    if (!activeTimer?.startTime || !isTimerActiveForCard) return;
+
+    const startTime = new Date(activeTimer.startTime).getTime();
+    const updateElapsed = () => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [activeTimer?.startTime, isTimerActiveForCard]);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
   } = useSortable({ id: task.id });
 
   const style = {
@@ -45,7 +75,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
 
   if (isDragging) {
     return (
-      <div 
+      <div
         ref={setNodeRef}
         style={style}
         className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-3 opacity-50 min-h-[80px]"
@@ -58,31 +88,43 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   }
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
       className={`group bg-white border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-grab active:cursor-grabbing relative ${task.completed ? 'opacity-75' : ''}`}
       onClick={(e) => {
-        // Prevent click if it was actually a drag
         if (e.defaultPrevented) return;
         onClick();
       }}
     >
+      {/* Timer Indicator */}
+      {isTimerActiveForCard && (
+        <div className="absolute -top-1 -right-1 z-10">
+          <div className="flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm animate-pulse">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12,6 12,12 16,14" />
+            </svg>
+            {formatDuration(elapsed)}
+          </div>
+        </div>
+      )}
+
       <div className="p-3">
         {/* Labels */}
         {task.labels && task.labels.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {task.labels.map((label) => (
-              <div 
-                key={label} 
+              <div
+                key={label}
                 className={`${LABEL_COLORS[label] || 'bg-gray-400'} h-1.5 w-8 rounded-full`}
               />
             ))}
           </div>
         )}
-        
+
         <p className={`text-sm font-medium text-gray-800 break-words line-clamp-3 ${task.completed ? 'line-through text-gray-500' : ''}`}>
           {task.title}
         </p>
@@ -90,24 +132,24 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         {/* Info Icons */}
         <div className="flex items-center gap-3 mt-2 text-gray-400">
           {task.completed && (
-             <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1 py-0.5 rounded">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
-             </div>
+            <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1 py-0.5 rounded">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
           )}
           {task.description && (
-             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           )}
           {task.dueDate && (
-             <div className="flex items-center gap-1 text-[10px] font-bold uppercase bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-             </div>
+            <div className="flex items-center gap-1 text-[10px] font-bold uppercase bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </div>
           )}
           {task.children && task.children.length > 0 && (
-             <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500" title={`${task.children.length} sub-tasks`}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
-                {task.children.length}
-             </div>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500" title={`${task.children.length} sub-tasks`}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
+              {task.children.length}
+            </div>
           )}
         </div>
       </div>

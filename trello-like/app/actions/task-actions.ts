@@ -145,12 +145,11 @@ export async function reorderTasks(items: { id: string; order: number; listId: s
   if (!session) return { success: false, error: "Unauthorized" };
 
   try {
-    db.transaction((tx) => {
+    await db.transaction(async (tx) => {
       for (const item of items) {
-        tx.update(tasks)
-          .set({ order: item.order, listId: item.listId })
-          .where(eq(tasks.id, item.id))
-          .run();
+        await tx.update(tasks)
+        .set({ order: item.order, listId: item.listId })
+        .where(eq(tasks.id, item.id));
       }
     });
     return { success: true };

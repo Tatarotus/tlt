@@ -1,46 +1,83 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, timestamp, boolean, jsonb, uuid, date } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-export const users = sqliteTable('users', {
-  id: text('id').primaryKey(),
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   password: text('password').notNull(),
   name: text('name').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
-export const workspaces = sqliteTable('workspaces', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id), // Link to user
+export const workspaces = pgTable('workspaces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id),
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(), // Unique slug for URLs
+  slug: text('slug').notNull().unique(),
   description: text('description'),
 });
 
-export const boards = sqliteTable('boards', {
-  id: text('id').primaryKey(),
+export const boards = pgTable('boards', {
+  id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(), // Unique slug for URLs
-  workspaceId: text('workspace_id').notNull().references(() => workspaces.id),
+  slug: text('slug').notNull().unique(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
 });
 
-export const lists = sqliteTable('lists', {
-  id: text('id').primaryKey(),
+export const lists = pgTable('lists', {
+  id: uuid('id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
   order: integer('order').notNull(),
-  boardId: text('board_id').notNull().references(() => boards.id),
+  boardId: uuid('board_id').notNull().references(() => boards.id),
 });
 
-export const tasks = sqliteTable('tasks', {
-  id: text('id').primaryKey(),
+export const tasks = pgTable('tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
   description: text('description').default(''),
   dueDate: text('due_date'),
-  labels: text('labels', { mode: 'json' }).$type<string[]>().default([]),
-  completed: integer('completed', { mode: 'boolean' }).default(false),
+  labels: jsonb('labels').$type<string[]>().default([]),
+  completed: boolean('completed').default(false),
   order: integer('order').notNull(),
-  listId: text('list_id').notNull().references(() => lists.id),
-  parentId: text('parent_id').references((): any => tasks.id, { onDelete: 'cascade' }),
+  listId: uuid('list_id').notNull().references(() => lists.id),
+  parentId: uuid('parent_id').references((): any => tasks.id, { onDelete: 'cascade' }),
+});
+
+export const sessions = pgTable('sessions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  category: text('category').notNull(),
+  startTime: timestamp('start_time', { withTimezone: true }).notNull(),
+  endTime: timestamp('end_time', { withTimezone: true }),
+  notes: text('notes'),
+  cardId: uuid('card_id').references(() => tasks.id, { onDelete: 'set null' }),
+  source: text('source').default('kanban').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+export const labelCategoryMappings = pgTable('label_category_mappings', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  label: text('label').notNull(),
+  category: text('category').notNull(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+});
+
+export const tags = pgTable('tags', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  color: text('color').notNull(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+export const calendarHighlights = pgTable('calendar_highlights', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  title: text('title').notNull(), // max 60 chars, plain text
+  color: text('color').notNull(), // 'green' | 'yellow' | 'red' | 'blue' | 'purple'
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 // Relations
@@ -54,6 +91,8 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
     references: [users.id],
   }),
   boards: many(boards),
+  calendarHighlights: many(calendarHighlights),
+  tags: many(tags),
 }));
 
 export const boardsRelations = relations(boards, ({ one, many }) => ({
@@ -84,5 +123,19 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   }),
   children: many(tasks, {
     relationName: 'subtasks',
+  }),
+}));
+
+export const calendarHighlightsRelations = relations(calendarHighlights, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [calendarHighlights.workspaceId],
+    references: [workspaces.id],
+  }),
+}));
+
+export const tagsRelations = relations(tags, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [tags.workspaceId],
+    references: [workspaces.id],
   }),
 }));

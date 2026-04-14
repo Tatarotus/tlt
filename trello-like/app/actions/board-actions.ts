@@ -108,3 +108,49 @@ export async function deleteBoard(boardId: string) {
     return { success: false, error: "Database delete failed" };
   }
 }
+
+const DEFAULT_LISTS = [
+  { title: "Todo", order: 0 },
+  { title: "In Progress", order: 1 },
+  { title: "Done", order: 2 },
+];
+
+export async function findOrCreateBoardByName(boardName: string, workspaceId: string) {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    const workspace = await db.query.workspaces.findFirst({
+      where: and(eq(workspaces.id, workspaceId), eq(workspaces.userId, session.userId))
+    });
+
+    if (!workspace) return { success: false, error: "Unauthorized" };
+
+    const existingBoard = await db.query.boards.findFirst({
+      where: and(eq(boards.workspaceId, workspaceId), eq(boards.name, boardName))
+    });
+
+    if (existingBoard) {
+      return { success: true, board: existingBoard, created: false };
+    }
+
+    const result = await createBoard(boardName, workspaceId);
+
+    if (result.success && result.board) {
+      // Create default lists for the new board
+      for (const listConfig of DEFAULT_LISTS) {
+        await db.insert(lists).values({
+          id: crypto.randomUUID(),
+          title: listConfig.title,
+          order: listConfig.order,
+          boardId: result.board.id,
+        });
+      }
+    }
+
+    return { ...result, created: true };
+  } catch (error) {
+    console.error("Failed to find or create board:", error);
+    return { success: false, error: "Failed to find or create board" };
+  }
+}
