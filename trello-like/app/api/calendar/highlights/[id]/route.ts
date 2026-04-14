@@ -81,7 +81,12 @@ export async function PUT(
     }
 
     if (color !== undefined) {
-      const validColors = ['green', 'yellow', 'red', 'blue', 'purple'];
+      const validColors = [
+        'green', 'yellow', 'red', 'blue', 'purple', 
+        'pink', 'orange', 'cyan', 'indigo', 'gray',
+        'emerald', 'rose', 'amber', 'sky', 'violet',
+        'lime', 'teal', 'fuchsia', 'slate', 'brown'
+      ];
       if (!validColors.includes(color)) {
         return NextResponse.json({ error: 'Invalid color' }, { status: 400 });
       }

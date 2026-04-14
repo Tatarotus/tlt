@@ -55,7 +55,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name must be 60 characters or less' }, { status: 400 });
     }
 
-    const validColors = ['green', 'yellow', 'red', 'blue', 'purple'];
+    const validColors = [
+      'green', 'yellow', 'red', 'blue', 'purple', 
+      'pink', 'orange', 'cyan', 'indigo', 'gray',
+      'emerald', 'rose', 'amber', 'sky', 'violet',
+      'lime', 'teal', 'fuchsia', 'slate', 'brown'
+    ];
     if (!validColors.includes(color)) {
       return NextResponse.json({ error: 'Invalid color' }, { status: 400 });
     }
