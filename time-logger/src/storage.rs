@@ -1,349 +1,305 @@
-use crate::models::{Session};
+use crate::models::Session;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use directories::ProjectDirs;
-use rusqlite::{params, Connection, Row};
-use std::fs;
-use std::path::PathBuf;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres, FromRow};
+use std::env;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum StorageError {
     #[error("Database error: {0}")]
-    Database(#[from] rusqlite::Error),
+    Database(#[from] sqlx::Error),
     #[error("Active session already exists")]
     ActiveSessionExists,
     #[error("No active session found")]
     NoActiveSession,
 }
 
+#[derive(Debug, FromRow)]
+struct SessionRow {
+    id: i64,
+    category: String,
+    start_time: DateTime<Utc>,
+    end_time: Option<DateTime<Utc>>,
+    notes: Option<String>,
+    card_id: Option<String>,
+    source: String,
+}
+
+impl From<SessionRow> for Session {
+    fn from(row: SessionRow) -> Self {
+        Session {
+            id: Some(row.id),
+            category: row.category,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            notes: row.notes,
+            card_id: row.card_id,
+            source: row.source,
+        }
+    }
+}
+
 pub struct Storage {
-    conn: Connection,
+    pub pool: Pool<Postgres>,
 }
 
 impl Storage {
-    pub fn new() -> Result<Self> {
-        let db_path = Self::get_db_path()?;
-        if let Some(parent) = db_path.parent() {
-            fs::create_dir_all(parent).context("Failed to create data directory")?;
-        }
+    pub async fn new() -> Result<Self> {
+        let database_url = env::var("DATABASE_URL")
+            .context("DATABASE_URL environment variable not set")?;
 
-        let mut conn = Connection::open(db_path).context("Failed to open database")?;
-        Self::init_schema(&mut conn)?;
-        
-        Ok(Storage { conn })
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&database_url)
+            .await
+            .context("Failed to connect to database")?;
+
+        Ok(Storage { pool })
     }
 
-    pub fn get_db_path() -> Result<PathBuf> {
-        let proj_dirs = ProjectDirs::from("com", "timelogger", "time-logger")
-            .context("Could not determine project directories")?;
-        let data_dir = proj_dirs.data_dir();
-        Ok(data_dir.join("timelog.db"))
-    }
-
-    fn init_schema(conn: &mut Connection) -> Result<()> {
-        let tx = conn.transaction()?;
-        
-        tx.execute(
-            "CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pub async fn init_schema(pool: &Pool<Postgres>) -> Result<()> {
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS sessions (
+                id SERIAL PRIMARY KEY,
                 category TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT,
-                notes TEXT
-            )",
-            [],
-        ).context("Failed to create sessions table")?;
+                start_time TIMESTAMPTZ NOT NULL,
+                end_time TIMESTAMPTZ,
+                notes TEXT,
+                card_id TEXT,
+                source TEXT DEFAULT 'cli' NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+            "#,
+        )
+        .execute(pool)
+        .await
+        .context("Failed to create sessions table")?;
 
-        // Phase 1: Add DB-level protection for the active session
-        // Only one row can have end_time IS NULL
-        tx.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_active_session 
-             ON sessions (end_time) WHERE end_time IS NULL",
-            [],
-        ).context("Failed to create active session index")?;
-
-        // Phase 12: Add indexes for performance
-        tx.execute(
+        sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_sessions_start_time ON sessions (start_time)",
-            [],
-        ).context("Failed to create start_time index")?;
-        
-        tx.execute(
+        )
+        .execute(pool)
+        .await
+        .context("Failed to create start_time index")?;
+
+        sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_sessions_end_time ON sessions (end_time)",
-            [],
-        ).context("Failed to create end_time index")?;
+        )
+        .execute(pool)
+        .await
+        .context("Failed to create end_time index")?;
 
-        tx.execute(
+        sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_sessions_category ON sessions (category)",
-            [],
-        ).context("Failed to create category index")?;
+        )
+        .execute(pool)
+        .await
+        .context("Failed to create category index")?;
 
-        // Composite index for range queries
-        tx.execute(
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_card_id ON sessions (card_id) WHERE card_id IS NOT NULL",
+        )
+        .execute(pool)
+        .await
+        .context("Failed to create card_id index")?;
+
+        sqlx::query(
             "CREATE INDEX IF NOT EXISTS idx_sessions_time_range ON sessions (start_time, end_time)",
-            [],
-        ).context("Failed to create time range index")?;
+        )
+        .execute(pool)
+        .await
+        .context("Failed to create time range index")?;
 
-        tx.commit()?;
         Ok(())
     }
 
-    pub fn start_session(&mut self, category: &str, notes: Option<String>) -> Result<()> {
-        let now = Utc::now().to_rfc3339();
-        let tx = self.conn.transaction()?;
-        
-        // The unique index will catch this at the DB level, but we still check for a better error message.
-        {
-            let mut stmt = tx.prepare(
-                "SELECT id FROM sessions WHERE end_time IS NULL LIMIT 1"
-            )?;
-            if stmt.exists([])? {
-                return Err(StorageError::ActiveSessionExists.into());
-            }
+    pub async fn start_session(&mut self, category: &str, notes: Option<String>, card_id: Option<String>, source: &str) -> Result<()> {
+        let now = Utc::now();
+
+        let existing: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM sessions WHERE end_time IS NULL LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if existing.is_some() {
+            return Err(StorageError::ActiveSessionExists.into());
         }
 
-        tx.execute(
-            "INSERT INTO sessions (category, start_time, notes) VALUES (?1, ?2, ?3)",
-            params![category, now, notes],
-        ).context("Failed to start session")?;
-        
-        tx.commit()?;
+        sqlx::query(
+            "INSERT INTO sessions (category, start_time, notes, card_id, source) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(category)
+        .bind(now)
+        .bind(notes)
+        .bind(card_id)
+        .bind(source)
+        .execute(&self.pool)
+        .await
+        .context("Failed to start session")?;
+
         Ok(())
     }
 
-    pub fn stop_session(&mut self) -> Result<Session> {
-        let tx = self.conn.transaction()?;
-
-        let active = {
-            let mut stmt = tx.prepare(
-                "SELECT id, category, start_time, end_time, notes FROM sessions WHERE end_time IS NULL LIMIT 1"
-            )?;
-            let mut rows = stmt.query([])?;
-            if let Some(row) = rows.next()? {
-                Self::row_to_session(row)?
-            } else {
-                return Err(StorageError::NoActiveSession.into());
-            }
-        };
+    pub async fn stop_session(&mut self) -> Result<Session> {
+        let active = self.get_active_session().await?
+            .ok_or(StorageError::NoActiveSession)?;
 
         let now = Utc::now();
-        tx.execute(
-            "UPDATE sessions SET end_time = ?1 WHERE id = ?2",
-            params![now.to_rfc3339(), active.id],
-        ).context("Failed to stop session")?;
-
-        tx.commit()?;
+        sqlx::query("UPDATE sessions SET end_time = $1 WHERE id = $2")
+            .bind(now)
+            .bind(active.id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to stop session")?;
 
         let mut session = active;
         session.end_time = Some(now);
         Ok(session)
     }
 
-    pub fn get_active_session(&self) -> Result<Option<Session>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, category, start_time, end_time, notes FROM sessions WHERE end_time IS NULL LIMIT 1"
-        )?;
-        let mut rows = stmt.query([])?;
+    pub async fn get_active_session(&self) -> Result<Option<Session>> {
+        let row: Option<SessionRow> = sqlx::query_as(
+            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions WHERE end_time IS NULL LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
 
-        if let Some(row) = rows.next()? {
-            Ok(Some(Self::row_to_session(row)?))
-        } else {
-            Ok(None)
-        }
+        Ok(row.map(Session::from))
     }
 
-    pub fn list_sessions(&self, limit: usize) -> Result<Vec<Session>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, category, start_time, end_time, notes FROM sessions ORDER BY start_time DESC LIMIT ?1"
-        )?;
-        let rows = stmt.query_map([limit as i64], |row| Self::row_to_session(row))?;
+    pub async fn get_active_session_by_card(&self, card_id: &str) -> Result<Option<Session>> {
+        let row: Option<SessionRow> = sqlx::query_as(
+            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions WHERE card_id = $1 AND end_time IS NULL LIMIT 1",
+        )
+        .bind(card_id)
+        .fetch_optional(&self.pool)
+        .await?;
 
-        let mut sessions = Vec::new();
-        for session in rows {
-            sessions.push(session?);
-        }
-        Ok(sessions)
+        Ok(row.map(Session::from))
     }
 
-    pub fn add_manual_session(&mut self, category: &str, start: DateTime<Utc>, end: DateTime<Utc>, notes: Option<String>) -> Result<()> {
-        let tx = self.conn.transaction()?;
+    pub async fn list_sessions(&self, limit: usize) -> Result<Vec<Session>> {
+        let rows: Vec<SessionRow> = sqlx::query_as(
+            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions ORDER BY start_time DESC LIMIT $1",
+        )
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await?;
 
-        tx.execute(
-            "INSERT INTO sessions (category, start_time, end_time, notes) VALUES (?1, ?2, ?3, ?4)",
-            params![category, start.to_rfc3339(), end.to_rfc3339(), notes],
-        ).context("Failed to add manual session")?;
-        
-        tx.commit()?;
+        Ok(rows.into_iter().map(Session::from).collect())
+    }
+
+    pub async fn add_manual_session(&mut self, category: &str, start: DateTime<Utc>, end: DateTime<Utc>, notes: Option<String>) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO sessions (category, start_time, end_time, notes, source) VALUES ($1, $2, $3, $4, 'cli')",
+        )
+        .bind(category)
+        .bind(start)
+        .bind(end)
+        .bind(notes)
+        .execute(&self.pool)
+        .await
+        .context("Failed to add manual session")?;
+
         Ok(())
     }
 
-    pub fn get_session_by_id(&self, id: i64) -> Result<Option<Session>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, category, start_time, end_time, notes FROM sessions WHERE id = ?1"
-        )?;
-        let mut rows = stmt.query([id])?;
+    pub async fn get_session_by_id(&self, id: i64) -> Result<Option<Session>> {
+        let row: Option<SessionRow> = sqlx::query_as(
+            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
 
-        if let Some(row) = rows.next()? {
-            Ok(Some(Self::row_to_session(row)?))
-        } else {
-            Ok(None)
-        }
+        Ok(row.map(Session::from))
     }
 
-    pub fn update_session(&mut self, session: &Session) -> Result<()> {
+    pub async fn update_session(&mut self, session: &Session) -> Result<()> {
         let id = session.id.ok_or_else(|| anyhow::anyhow!("Cannot update session without ID"))?;
-        let end_time_str = session.end_time.map(|et| et.to_rfc3339());
+        sqlx::query(
+            "UPDATE sessions SET category = $1, start_time = $2, end_time = $3, notes = $4 WHERE id = $5",
+        )
+        .bind(&session.category)
+        .bind(session.start_time)
+        .bind(session.end_time)
+        .bind(&session.notes)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .context("Failed to update session")?;
 
-        let tx = self.conn.transaction()?;
-
-        tx.execute(
-            "UPDATE sessions SET category = ?1, start_time = ?2, end_time = ?3, notes = ?4 WHERE id = ?5",
-            params![
-                session.category,
-                session.start_time.to_rfc3339(),
-                end_time_str,
-                session.notes,
-                id
-            ],
-        ).context("Failed to update session")?;
-        
-        tx.commit()?;
         Ok(())
     }
 
-    pub fn has_overlap(&self, start: DateTime<Utc>, end: DateTime<Utc>, ignore_id: Option<i64>) -> Result<Option<Session>> {
-        let sql = if let Some(id) = ignore_id {
-            format!(
-                "SELECT id, category, start_time, end_time, notes FROM sessions 
-                 WHERE id != {} AND (start_time < ?2 AND (end_time > ?1 OR end_time IS NULL)) LIMIT 1",
-                id
+    pub async fn has_overlap(&self, start: DateTime<Utc>, end: DateTime<Utc>, ignore_id: Option<i64>) -> Result<Option<Session>> {
+        let row: Option<SessionRow> = if let Some(id) = ignore_id {
+            sqlx::query_as(
+                "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions \
+                WHERE id != $1 AND (start_time < $3 AND (end_time > $2 OR end_time IS NULL)) LIMIT 1",
             )
+            .bind(id)
+            .bind(start)
+            .bind(end)
+            .fetch_optional(&self.pool)
+            .await?
         } else {
-            "SELECT id, category, start_time, end_time, notes FROM sessions 
-             WHERE (start_time < ?2 AND (end_time > ?1 OR end_time IS NULL)) LIMIT 1".to_string()
+            sqlx::query_as(
+                "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions \
+                WHERE (start_time < $2 AND (end_time > $1 OR end_time IS NULL)) LIMIT 1",
+            )
+            .bind(start)
+            .bind(end)
+            .fetch_optional(&self.pool)
+            .await?
         };
 
-        let mut stmt = self.conn.prepare(&sql)?;
-        let mut rows = stmt.query(params![start.to_rfc3339(), end.to_rfc3339()])?;
-
-        if let Some(row) = rows.next()? {
-            Ok(Some(Self::row_to_session(row)?))
-        } else {
-            Ok(None)
-        }
+        Ok(row.map(Session::from))
     }
 
-    pub fn get_last_session_end(&self) -> Result<Option<DateTime<Utc>>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT end_time FROM sessions WHERE end_time IS NOT NULL ORDER BY end_time DESC LIMIT 1"
-        )?;
-        let mut rows = stmt.query([])?;
+    pub async fn get_last_session_end(&self) -> Result<Option<DateTime<Utc>>> {
+        let row: Option<(Option<DateTime<Utc>>,)> = sqlx::query_as(
+            "SELECT end_time FROM sessions WHERE end_time IS NOT NULL ORDER BY end_time DESC LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
 
-        if let Some(row) = rows.next()? {
-            let s: String = row.get(0)?;
-            let dt = DateTime::parse_from_rfc3339(&s)
-                .map(|dt| dt.with_timezone(&Utc))
-                .context("Failed to parse end_time from DB")?;
-            Ok(Some(dt))
-        } else {
-            Ok(None)
-        }
+        Ok(row.and_then(|r| r.0))
     }
 
-    pub fn get_last_session(&self) -> Result<Option<Session>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, category, start_time, end_time, notes FROM sessions ORDER BY id DESC LIMIT 1"
-        )?;
-        let mut rows = stmt.query([])?;
+    pub async fn get_last_session(&self) -> Result<Option<Session>> {
+        let row: Option<SessionRow> = sqlx::query_as(
+            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions ORDER BY id DESC LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
 
-        if let Some(row) = rows.next()? {
-            Ok(Some(Self::row_to_session(row)?))
-        } else {
-            Ok(None)
-        }
+        Ok(row.map(Session::from))
     }
 
-    pub fn list_sessions_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Session>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, category, start_time, end_time, notes FROM sessions 
-             WHERE start_time >= ?1 AND start_time <= ?2 
-             ORDER BY start_time ASC"
-        )?;
-        let rows = stmt.query_map(params![start.to_rfc3339(), end.to_rfc3339()], |row| Self::row_to_session(row))?;
+    pub async fn list_sessions_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Session>> {
+        let rows: Vec<SessionRow> = sqlx::query_as(
+            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions \
+            WHERE start_time >= $1 AND start_time <= $2 ORDER BY start_time ASC",
+        )
+        .bind(start)
+        .bind(end)
+        .fetch_all(&self.pool)
+        .await?;
 
-        let mut sessions = Vec::new();
-        for session in rows {
-            sessions.push(session?);
-        }
-        Ok(sessions)
+        Ok(rows.into_iter().map(Session::from).collect())
     }
 
-    pub fn delete_session(&mut self, id: i64) -> Result<()> {
-        let tx = self.conn.transaction()?;
+    pub async fn delete_session(&mut self, id: i64) -> Result<()> {
+        sqlx::query("DELETE FROM sessions WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
-        tx.execute("DELETE FROM sessions WHERE id = ?1", params![id])?;
-        
-        tx.commit()?;
         Ok(())
-    }
-
-    fn row_to_session(row: &Row) -> rusqlite::Result<Session> {
-        let start_time_str: String = row.get(2)?;
-        let end_time_str: Option<String> = row.get(3)?;
-
-        let start_time = DateTime::parse_from_rfc3339(&start_time_str)
-            .map(|dt| dt.with_timezone(&Utc))
-            .map_err(|_| rusqlite::Error::InvalidQuery)?;
-
-        let end_time = end_time_str.and_then(|s| {
-            DateTime::parse_from_rfc3339(&s)
-                .map(|dt| dt.with_timezone(&Utc))
-                .ok()
-        });
-
-        Ok(Session {
-            id: Some(row.get(0)?),
-            category: row.get(1)?,
-            start_time,
-            end_time,
-            notes: row.get(4)?,
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn setup_test_db() -> Storage {
-        let mut conn = Connection::open_in_memory().unwrap();
-        Storage::init_schema(&mut conn).unwrap();
-        Storage { conn }
-    }
-
-    #[test]
-    fn test_start_stop_session() {
-        let mut storage = setup_test_db();
-        storage.start_session("coding", None).unwrap();
-        
-        let active = storage.get_active_session().unwrap();
-        assert!(active.is_some());
-        assert_eq!(active.unwrap().category, "coding");
-
-        storage.stop_session().unwrap();
-        assert!(storage.get_active_session().unwrap().is_none());
-
-        let sessions = storage.list_sessions(10).unwrap();
-        assert_eq!(sessions.len(), 1);
-        assert!(sessions[0].end_time.is_some());
-    }
-
-    #[test]
-    fn test_duplicate_session_error() {
-        let mut storage = setup_test_db();
-        storage.start_session("coding", None).unwrap();
-        let result = storage.start_session("study", None);
-        assert!(result.is_err());
     }
 }

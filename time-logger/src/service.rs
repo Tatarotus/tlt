@@ -9,25 +9,30 @@ pub struct TimeLoggerService {
 }
 
 impl TimeLoggerService {
-    pub fn new() -> Result<Self> {
-        let storage = Storage::new()?;
+    pub async fn new() -> Result<Self> {
+        let storage = Storage::new().await?;
         Ok(Self { storage })
     }
 
-    pub fn start_session(&mut self, category: &str, notes: Option<String>) -> Result<()> {
-        self.storage.start_session(category, notes)
+    pub async fn init_schema() -> Result<()> {
+        let storage = Storage::new().await?;
+        Storage::init_schema(&storage.pool).await
     }
 
-    pub fn stop_session(&mut self) -> Result<Session> {
-        self.storage.stop_session()
+    pub async fn start_session(&mut self, category: &str, notes: Option<String>) -> Result<()> {
+        self.storage.start_session(category, notes, None, "cli").await
     }
 
-    pub fn get_status(&self) -> Result<(Option<Session>, Duration)> {
-        let active = self.storage.get_active_session()?;
+    pub async fn stop_session(&mut self) -> Result<Session> {
+        self.storage.stop_session().await
+    }
+
+    pub async fn get_status(&self) -> Result<(Option<Session>, Duration)> {
+        let active = self.storage.get_active_session().await?;
         let mut today_total = Duration::zero();
-        
+
         let now = Utc::now();
-        let sessions = self.storage.list_sessions(100)?;
+        let sessions = self.storage.list_sessions(100).await?;
         let today = Local::now().date_naive();
         for s in sessions {
             if let Some(dur) = s.duration_at(now) {
@@ -36,15 +41,15 @@ impl TimeLoggerService {
                 }
             }
         }
-        
+
         Ok((active, today_total))
     }
 
-    pub fn list_recent_sessions(&self, limit: usize) -> Result<Vec<Session>> {
-        self.storage.list_sessions(limit)
+    pub async fn list_recent_sessions(&self, limit: usize) -> Result<Vec<Session>> {
+        self.storage.list_sessions(limit).await
     }
 
-    pub fn add_session_by_duration(
+    pub async fn add_session_by_duration(
         &mut self,
         category: &str,
         duration_str: &str,
@@ -61,22 +66,22 @@ impl TimeLoggerService {
         let mut end_time: Option<DateTime<Utc>> = None;
 
         if let Some(s) = start_str {
-            let (dt, shifted) = self.parse_time_smart(&s)?;
-            if shifted && !self.confirm_yesterday(dt)? {
+            let (dt, shifted) = self.parse_time_smart(&s).await?;
+            if shifted && !self.confirm_yesterday(dt).await? {
                 anyhow::bail!("Operation cancelled.");
             }
             start_time = Some(dt);
         }
         if let Some(e) = end_str {
-            let (dt, shifted) = self.parse_time_smart(&e)?;
-            if shifted && !self.confirm_yesterday(dt)? {
+            let (dt, shifted) = self.parse_time_smart(&e).await?;
+            if shifted && !self.confirm_yesterday(dt).await? {
                 anyhow::bail!("Operation cancelled.");
             }
             end_time = Some(dt);
         }
 
         let (st, et) = if chain {
-            if let Some(last_end) = self.storage.get_last_session_end()? {
+            if let Some(last_end) = self.storage.get_last_session_end().await? {
                 let st = last_end;
                 let et = st + dur;
                 (st, et)
@@ -95,8 +100,8 @@ impl TimeLoggerService {
             }
         };
 
-        self.validate_overlap(st, et, None)?;
-        self.storage.add_manual_session(category, st, et, notes.clone())?;
+        self.validate_overlap(st, et, None).await?;
+        self.storage.add_manual_session(category, st, et, notes.clone()).await?;
 
         Ok(Session {
             id: None,
@@ -104,38 +109,42 @@ impl TimeLoggerService {
             start_time: st,
             end_time: Some(et),
             notes,
+            card_id: None,
+            source: "cli".to_string(),
         })
     }
 
-    pub fn add_manual_session(
+    pub async fn add_manual_session(
         &mut self,
         category: &str,
         start_str: &str,
         end_str: &str,
         notes: Option<String>,
     ) -> Result<Session> {
-        let (st, shifted_st) = self.parse_time_smart(start_str)?;
-        if shifted_st && !self.confirm_yesterday(st)? {
+        let (st, shifted_st) = self.parse_time_smart(start_str).await?;
+        if shifted_st && !self.confirm_yesterday(st).await? {
             anyhow::bail!("Operation cancelled.");
         }
-        let (et, shifted_et) = self.parse_time_smart(end_str)?;
-        if shifted_et && !self.confirm_yesterday(et)? {
+        let (et, shifted_et) = self.parse_time_smart(end_str).await?;
+        if shifted_et && !self.confirm_yesterday(et).await? {
             anyhow::bail!("Operation cancelled.");
         }
 
-        self.validate_overlap(st, et, None)?;
-        self.storage.add_manual_session(category, st, et, notes.clone())?;
-        
+        self.validate_overlap(st, et, None).await?;
+        self.storage.add_manual_session(category, st, et, notes.clone()).await?;
+
         Ok(Session {
             id: None,
             category: category.to_string(),
             start_time: st,
             end_time: Some(et),
             notes,
+            card_id: None,
+            source: "cli".to_string(),
         })
     }
 
-    pub fn edit_session(
+    pub async fn edit_session(
         &mut self,
         id: i64,
         category: Option<String>,
@@ -143,22 +152,22 @@ impl TimeLoggerService {
         end: Option<String>,
         notes: Option<String>,
     ) -> Result<Session> {
-        let mut session = self.storage.get_session_by_id(id)?
+        let mut session = self.storage.get_session_by_id(id).await?
             .ok_or_else(|| anyhow::anyhow!("Session with ID {} not found", id))?;
 
         if let Some(c) = category {
             session.category = c;
         }
         if let Some(s) = start {
-            let (dt, shifted) = self.parse_time_smart(&s)?;
-            if shifted && !self.confirm_yesterday(dt)? {
+            let (dt, shifted) = self.parse_time_smart(&s).await?;
+            if shifted && !self.confirm_yesterday(dt).await? {
                 anyhow::bail!("Operation cancelled.");
             }
             session.start_time = dt;
         }
         if let Some(e) = end {
-            let (dt, shifted) = self.parse_time_smart(&e)?;
-            if shifted && !self.confirm_yesterday(dt)? {
+            let (dt, shifted) = self.parse_time_smart(&e).await?;
+            if shifted && !self.confirm_yesterday(dt).await? {
                 anyhow::bail!("Operation cancelled.");
             }
             session.end_time = Some(dt);
@@ -170,14 +179,14 @@ impl TimeLoggerService {
         let st = session.start_time;
         let et = session.end_time.ok_or_else(|| anyhow::anyhow!("Cannot edit an active session to have no end time yet (use stop first)"))?;
 
-        self.validate_overlap(st, et, Some(id))?;
-        self.storage.update_session(&session)?;
+        self.validate_overlap(st, et, Some(id)).await?;
+        self.storage.update_session(&session).await?;
         Ok(session)
     }
 
-    fn confirm_yesterday(&self, dt: DateTime<Utc>) -> Result<bool> {
+    async fn confirm_yesterday(&self, dt: DateTime<Utc>) -> Result<bool> {
         let local_dt = dt.with_timezone(&Local);
-        println!("⚠️  Warning: This time ({}) is being logged for YESTERDAY ({}).", 
+        println!("Warning: This time ({}) is being logged for YESTERDAY ({}).",
             local_dt.format("%H:%M"),
             local_dt.format("%Y-%m-%d")
         );
@@ -187,15 +196,15 @@ impl TimeLoggerService {
         Ok(input.trim().eq_ignore_ascii_case("y"))
     }
 
-    fn validate_overlap(
+    async fn validate_overlap(
         &self,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
         ignore_id: Option<i64>,
     ) -> Result<()> {
-        if let Some(overlap) = self.storage.has_overlap(start, end, ignore_id)? {
+        if let Some(overlap) = self.storage.has_overlap(start, end, ignore_id).await? {
             println!("Warning: Overlap detected with Session ID: {:?}", overlap.id);
-            println!("  Category: {}, Start: {}, End: {}", 
+            println!(" Category: {}, Start: {}, End: {}",
                 overlap.category,
                 overlap.start_time.with_timezone(&Local).format("%H:%M"),
                 overlap.end_time.map(|et| et.with_timezone(&Local).format("%H:%M").to_string()).unwrap_or_else(|| "Active".to_string())
@@ -210,7 +219,7 @@ impl TimeLoggerService {
         Ok(())
     }
 
-    pub fn parse_time_smart(&self, s: &str) -> Result<(DateTime<Utc>, bool)> {
+    pub async fn parse_time_smart(&self, s: &str) -> Result<(DateTime<Utc>, bool)> {
         if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
             return Ok((dt.with_timezone(&Utc), false));
         }
@@ -218,14 +227,14 @@ impl TimeLoggerService {
         let now_local = Local::now();
         let today = now_local.date_naive();
         let formats = ["%H:%M", "%H:%M:%S"];
-        
+
         for fmt in formats {
             if let Ok(naive_time) = chrono::NaiveTime::parse_from_str(s, fmt) {
                 let mut local_dt = today.and_time(naive_time)
                     .and_local_timezone(Local)
                     .single()
                     .context("Ambiguous local time")?;
-                
+
                 let mut shifted = false;
                 if local_dt > now_local + Duration::hours(1) {
                     local_dt = local_dt - Duration::days(1);
@@ -239,28 +248,26 @@ impl TimeLoggerService {
         anyhow::bail!("Invalid time format: {}. Use HH:MM or RFC3339.", s)
     }
 
-    pub fn get_report(
-        &self, 
-        start: DateTime<Utc>, 
-        end: DateTime<Utc>, 
+    pub async fn get_report(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
         tag_filter: Option<String>
     ) -> Result<HashMap<String, Duration>> {
-        let sessions = self.storage.list_sessions_in_range(start, end)?;
+        let sessions = self.storage.list_sessions_in_range(start, end).await?;
         let mut totals = HashMap::new();
         let now = Utc::now();
-        
+
         for s in sessions {
             if let Some(d) = s.duration_at(now) {
                 let cat = s.category_parsed();
                 match &tag_filter {
                     Some(filter) => {
                         if cat.matches(filter) {
-                            // When filtering, we show full detail (main:sub)
                             *totals.entry(cat.full()).or_insert(Duration::zero()) += d;
                         }
                     }
                     None => {
-                        // Default view: Group by main category for high-level overview
                         *totals.entry(cat.main).or_insert(Duration::zero()) += d;
                     }
                 }
@@ -269,13 +276,13 @@ impl TimeLoggerService {
         Ok(totals)
     }
 
-    pub fn compare_weeks(&self, tag_filter: Option<String>) -> Result<Vec<(String, Duration, Duration)>> {
+    pub async fn compare_weeks(&self, tag_filter: Option<String>) -> Result<Vec<(String, Duration, Duration)>> {
         let now = Utc::now();
         let this_week_start = now - chrono::Duration::days(7);
         let last_week_start = now - chrono::Duration::days(14);
 
-        let this_week_totals = self.get_report(this_week_start, now, tag_filter.clone())?;
-        let last_week_totals = self.get_report(last_week_start, this_week_start, tag_filter)?;
+        let this_week_totals = self.get_report(this_week_start, now, tag_filter.clone()).await?;
+        let last_week_totals = self.get_report(last_week_start, this_week_start, tag_filter.clone()).await?;
 
         let mut comparison = Vec::new();
         let all_categories: std::collections::HashSet<_> = this_week_totals.keys()
@@ -291,34 +298,34 @@ impl TimeLoggerService {
         Ok(comparison)
     }
 
-    pub fn pop_last_session(&self) -> Result<Option<Session>> {
-        self.storage.get_last_session()
+    pub async fn pop_last_session(&self) -> Result<Option<Session>> {
+        self.storage.get_last_session().await
     }
 
-    pub fn confirm_delete_session(&mut self, id: i64) -> Result<()> {
-        self.storage.delete_session(id)
+    pub async fn confirm_delete_session(&mut self, id: i64) -> Result<()> {
+        self.storage.delete_session(id).await
     }
 
-    pub fn abort_session(&mut self) -> Result<Session> {
-        let active = self.storage.get_active_session()?
+    pub async fn abort_session(&mut self) -> Result<Session> {
+        let active = self.storage.get_active_session().await?
             .ok_or_else(|| anyhow::anyhow!("No active session to abort"))?;
-        
-        println!("Aborting active session: {} (Started at {})", 
-            active.category, 
+
+        println!("Aborting active session: {} (Started at {})",
+            active.category,
             active.start_time.with_timezone(&Local).format("%H:%M")
         );
         println!("Are you sure? [y/N]");
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         if input.trim().eq_ignore_ascii_case("y") {
-            self.storage.delete_session(active.id.unwrap())?;
+            self.storage.delete_session(active.id.unwrap()).await?;
             Ok(active)
         } else {
             anyhow::bail!("Abort cancelled.")
         }
     }
 
-    pub fn process_log_batch(&mut self, date_str: Option<String>, content: &str) -> Result<()> {
+    pub async fn process_log_batch(&mut self, date_str: Option<String>, content: &str) -> Result<()> {
         let local_date = if let Some(d) = date_str {
             chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
                 .context("Invalid date format. Use YYYY-MM-DD")?
@@ -326,9 +333,8 @@ impl TimeLoggerService {
             Local::now().date_naive()
         };
 
-        let current_start = self.get_last_session_end_for_day(local_date)?;
-        
-        // If no sessions exist for that day, start at the beginning of the day (00:00)
+        let current_start = self.get_last_session_end_for_day(local_date).await?;
+
         let mut last_end = current_start.unwrap_or_else(|| {
             local_date.and_hms_opt(0, 0, 0).unwrap()
                 .and_local_timezone(Local).single().unwrap()
@@ -343,7 +349,7 @@ impl TimeLoggerService {
 
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() < 2 {
-                println!("⚠️  Skipping invalid line: {}", line);
+                println!("Skipping invalid line: {}", line);
                 continue;
             }
 
@@ -361,22 +367,22 @@ impl TimeLoggerService {
 
             let st = last_end;
             let et = st + dur;
-
-            println!("Logging: {} ({} - {})", category, 
+            println!("Logging: {} ({} - {})",
+                category,
                 st.with_timezone(&Local).format("%H:%M"),
                 et.with_timezone(&Local).format("%H:%M")
             );
 
-            self.validate_overlap(st, et, None)?;
-            self.storage.add_manual_session(category, st, et, notes)?;
+            self.validate_overlap(st, et, None).await?;
+            self.storage.add_manual_session(category, st, et, notes).await?;
             last_end = et;
         }
 
         Ok(())
     }
 
-    fn get_last_session_end_for_day(&self, date: chrono::NaiveDate) -> Result<Option<DateTime<Utc>>> {
-        let sessions = self.storage.list_sessions(1000)?;
+    async fn get_last_session_end_for_day(&self, date: chrono::NaiveDate) -> Result<Option<DateTime<Utc>>> {
+        let sessions = self.storage.list_sessions(1000).await?;
         let mut last_end: Option<DateTime<Utc>> = None;
 
         for s in sessions {
@@ -391,10 +397,10 @@ impl TimeLoggerService {
         Ok(last_end)
     }
 
-    pub fn get_sessions_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>, include_active: bool) -> Result<Vec<Session>> {
-        let mut sessions = self.storage.list_sessions_in_range(start, end)?;
+    pub async fn get_sessions_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>, include_active: bool) -> Result<Vec<Session>> {
+        let mut sessions = self.storage.list_sessions_in_range(start, end).await?;
         if include_active {
-            if let Some(active) = self.storage.get_active_session()? {
+            if let Some(active) = self.storage.get_active_session().await? {
                 if active.start_time <= end {
                     sessions.push(active);
                 }
@@ -403,7 +409,7 @@ impl TimeLoggerService {
         Ok(sessions)
     }
 
-    pub fn export_sessions(&self, sessions: Vec<Session>, format: &str, output: Option<String>) -> Result<String> {
+    pub async fn export_sessions(&self, sessions: Vec<Session>, format: &str, output: Option<String>) -> Result<String> {
         let export_data: Vec<SessionExport> = sessions.into_iter().map(SessionExport::from).collect();
 
         let content = match format.to_lowercase().as_str() {
@@ -429,8 +435,7 @@ impl TimeLoggerService {
 
     pub fn format_obsidian(&self, date: chrono::NaiveDate, sessions: Vec<Session>) -> String {
         let mut content = format!("# Daily Time Log: {}\n\n", date.format("%Y-%m-%d"));
-        
-        // Summary section
+
         content.push_str("## Summary\n\n");
         let mut totals = HashMap::new();
         let mut grand_total = Duration::zero();
@@ -451,7 +456,6 @@ impl TimeLoggerService {
         }
         content.push_str(&format!("\n**Total**: {}\n\n", self.format_duration_short(grand_total)));
 
-        // Details section
         content.push_str("## Details\n\n");
         content.push_str("| Category | Start | End | Duration | Notes |\n");
         content.push_str("| --- | --- | --- | --- | --- |\n");
@@ -481,59 +485,48 @@ impl TimeLoggerService {
         }
     }
 
-    pub fn resume_last_category(&mut self, notes: Option<String>) -> Result<String> {
-        let last_end = self.storage.get_last_session()?
+    pub async fn resume_last_category(&mut self, notes: Option<String>) -> Result<String> {
+        let last_end = self.storage.get_last_session().await?
             .ok_or_else(|| anyhow::anyhow!("No previous session to resume from"))?;
-        
+
         let category = last_end.category;
-        self.start_session(&category, notes)?;
+        self.start_session(&category, notes).await?;
         Ok(category)
     }
 
-    pub fn perform_backup(&self, json: bool, auto: bool) -> Result<()> {
+    pub async fn perform_backup(&self, json: bool, auto: bool) -> Result<()> {
         let now = Local::now();
         let date_str = now.format("%Y-%m-%d").to_string();
-        
+
         let home = directories::UserDirs::new()
             .context("Could not determine user directories")?
             .home_dir()
             .to_path_buf();
-        
+
         let backup_dir = home.join("PARA/4.Archives/backups/time-logger");
         std::fs::create_dir_all(&backup_dir).context("Failed to create backup directory")?;
 
-        // 1. Database backup
-        let db_src = Storage::get_db_path()?;
-        let db_dst = backup_dir.join(format!("{}.db", date_str));
-        
-        std::fs::copy(&db_src, &db_dst).context("Failed to copy database file")?;
-        
-        if !auto {
-            println!("✅ Database backup successful.");
-            println!("  Source:      {:?}", db_src);
-            println!("  Destination: {:?}", db_dst);
-        }
+        println!("Note: Backup to local file is no longer supported with PostgreSQL backend.");
+        println!("Your data is safely stored in the PostgreSQL database.");
 
-        // 2. Optional JSON backup
         if json {
             let json_dst = backup_dir.join(format!("{}.json", date_str));
-            let sessions = self.storage.list_sessions(1000000)?; // Export all sessions
-            let json_content = self.export_sessions(sessions, "json", None)?;
+            let sessions = self.storage.list_sessions(1000000).await?;
+            let json_content = self.export_sessions(sessions, "json", None).await?;
             std::fs::write(&json_dst, json_content).context("Failed to write JSON backup")?;
-            
+
             if !auto {
-                println!("✅ JSON snapshot successful.");
-                println!("  Destination: {:?}", json_dst);
+                println!("JSON snapshot saved to {:?}", json_dst);
             }
         }
 
         Ok(())
     }
 
-    pub fn get_streak(&self, category_name: &str) -> Result<i32> {
-        let sessions = self.storage.list_sessions(10000)?;
+    pub async fn get_streak(&self, category_name: &str) -> Result<i32> {
+        let sessions = self.storage.list_sessions(10000).await?;
         let mut days: std::collections::HashSet<chrono::NaiveDate> = std::collections::HashSet::new();
-        
+
         for s in sessions {
             let cat = s.category_parsed();
             if cat.matches(category_name) {
@@ -547,8 +540,7 @@ impl TimeLoggerService {
 
         let mut streak = 0;
         let mut current_day = Local::now().date_naive();
-        
-        // If no time logged today, check if streak ended yesterday
+
         if !days.contains(&current_day) {
             current_day = current_day - Duration::days(1);
         }
@@ -561,25 +553,25 @@ impl TimeLoggerService {
         Ok(streak)
     }
 
-    pub fn set_goal(&self, category: String, duration_str: String) -> Result<()> {
+    pub async fn set_goal(&mut self, category: String, duration_str: String) -> Result<()> {
         let dur = duration_str::parse_chrono(&duration_str)
             .map_err(|e| anyhow::anyhow!(e))
             .context("Invalid duration format")?;
-        
-        let mut config = self.load_config()?;
+
+        let mut config = self.load_config().await?;
         let minutes = dur.num_minutes();
-        
+
         if let Some(goal) = config.goals.iter_mut().find(|g| g.category == category) {
             goal.duration_minutes = minutes;
         } else {
             config.goals.push(Goal { category, duration_minutes: minutes });
         }
 
-        self.save_config(&config)
+        self.save_config(&config).await
     }
 
-    pub fn list_goals(&self) -> Result<Vec<Goal>> {
-        let config = self.load_config()?;
+    pub async fn list_goals(&self) -> Result<Vec<Goal>> {
+        let config = self.load_config().await?;
         Ok(config.goals)
     }
 
@@ -591,7 +583,7 @@ impl TimeLoggerService {
         Ok(config_dir.join("config.json"))
     }
 
-    fn load_config(&self) -> Result<Config> {
+    async fn load_config(&self) -> Result<Config> {
         let path = self.get_config_path()?;
         if path.exists() {
             let content = std::fs::read_to_string(path)?;
@@ -601,7 +593,7 @@ impl TimeLoggerService {
         }
     }
 
-    fn save_config(&self, config: &Config) -> Result<()> {
+    async fn save_config(&self, config: &Config) -> Result<()> {
         let path = self.get_config_path()?;
         let content = serde_json::to_string_pretty(config)?;
         std::fs::write(path, content)?;

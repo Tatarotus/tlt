@@ -1,9 +1,5 @@
 use clap::{Parser, Subcommand};
 
-/// A high-quality, production-ready time logging and habit tracking CLI tool.
-///
-/// Use this tool to track activities in real-time with a stopwatch, or log 
-/// completed tasks with flexible duration-based entries.
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -13,6 +9,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Initialize the database schema
+    Init,
     /// Start a new stopwatch-based session in real-time.
     ///
     /// Example: tl start coding -n "Building the API"

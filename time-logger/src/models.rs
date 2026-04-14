@@ -8,6 +8,8 @@ pub struct Session {
     pub start_time: DateTime<Utc>,
     pub end_time: Option<DateTime<Utc>>,
     pub notes: Option<String>,
+    pub card_id: Option<String>,
+    pub source: String,
 }
 
 impl Session {
@@ -59,9 +61,6 @@ impl Category {
         }
     }
 
-    /// Returns true if this category matches the given filter string.
-    /// If filter is "coding", matches "coding" and "coding:rust".
-    /// If filter is "coding:rust", matches only "coding:rust".
     pub fn matches(&self, filter: &str) -> bool {
         let filter_cat = Self::parse(filter);
         if filter_cat.sub.is_some() {
@@ -71,7 +70,6 @@ impl Category {
         }
     }
 
-    /// Returns true if the main categories match.
     pub fn matches_main(&self, main_name: &str) -> bool {
         self.main == main_name
     }
@@ -100,7 +98,10 @@ pub struct SessionExport {
 
 impl From<Session> for SessionExport {
     fn from(s: Session) -> Self {
-        let duration = s.duration().unwrap_or(chrono::Duration::zero()).num_minutes();
+        let duration = s
+            .duration()
+            .unwrap_or(chrono::Duration::zero())
+            .num_minutes();
         SessionExport {
             id: s.id.unwrap_or(0),
             category: s.category,
