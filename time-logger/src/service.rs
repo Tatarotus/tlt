@@ -1,4 +1,4 @@
-use crate::models::{Session, SessionExport, Goal, Config};
+use crate::models::{Session, SessionExport, Goal, Config, Category};
 use crate::storage::Storage;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc, Local, Duration};
@@ -20,7 +20,20 @@ impl TimeLoggerService {
     }
 
     pub async fn start_session(&mut self, category: &str, notes: Option<String>) -> Result<()> {
-        self.storage.start_session(category, notes, None, "cli").await
+        let parsed = Category::parse(category);
+        
+        let main_category = self.storage.find_or_create_category(&parsed.main, None).await?;
+        let main_id = main_category.id;
+        
+        let final_category = if let Some(sub) = &parsed.sub {
+            let sub_category = self.storage.find_or_create_category(sub, main_id).await?;
+            sub_category
+        } else {
+            main_category
+        };
+        
+        let category_id = final_category.id;
+        self.storage.start_session(category, category_id, notes, None, "cli").await
     }
 
     pub async fn stop_session(&mut self) -> Result<Session> {
@@ -106,6 +119,7 @@ impl TimeLoggerService {
         Ok(Session {
             id: None,
             category: category.to_string(),
+            category_id: None,
             start_time: st,
             end_time: Some(et),
             notes,
@@ -136,6 +150,7 @@ impl TimeLoggerService {
         Ok(Session {
             id: None,
             category: category.to_string(),
+            category_id: None,
             start_time: st,
             end_time: Some(et),
             notes,
@@ -581,6 +596,14 @@ impl TimeLoggerService {
         let config_dir = proj_dirs.config_dir();
         std::fs::create_dir_all(config_dir)?;
         Ok(config_dir.join("config.json"))
+    }
+
+    pub async fn get_category_tree(&self) -> Result<Vec<crate::models::CategoryTreeNode>> {
+        self.storage.get_category_tree().await
+    }
+
+    pub async fn get_category_stats(&self) -> Result<Vec<(String, i64)>> {
+        self.storage.get_category_usage_stats().await
     }
 
     async fn load_config(&self) -> Result<Config> {

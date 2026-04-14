@@ -1,8 +1,8 @@
-use crate::models::Session;
+use crate::models::{Session, Category, CategoryTreeNode};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres, FromRow};
+use sqlx::{Pool, Postgres, FromRow, Row};
 use std::env;
 use thiserror::Error;
 
@@ -14,12 +14,17 @@ pub enum StorageError {
     ActiveSessionExists,
     #[error("No active session found")]
     NoActiveSession,
+    #[error("Category in use - cannot delete")]
+    CategoryInUse,
+    #[error("Category not found")]
+    CategoryNotFound,
 }
 
 #[derive(Debug, FromRow)]
 struct SessionRow {
     id: i64,
     category: String,
+    category_id: Option<i64>,
     start_time: DateTime<Utc>,
     end_time: Option<DateTime<Utc>>,
     notes: Option<String>,
@@ -32,6 +37,7 @@ impl From<SessionRow> for Session {
         Session {
             id: Some(row.id),
             category: row.category,
+            category_id: row.category_id,
             start_time: row.start_time,
             end_time: row.end_time,
             notes: row.notes,
@@ -39,6 +45,14 @@ impl From<SessionRow> for Session {
             source: row.source,
         }
     }
+}
+
+#[derive(Debug, FromRow)]
+struct CategoryRow {
+    id: i64,
+    name: String,
+    parent_id: Option<i64>,
+    created_at: Option<DateTime<Utc>>,
 }
 
 pub struct Storage {
@@ -116,33 +130,34 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn start_session(&mut self, category: &str, notes: Option<String>, card_id: Option<String>, source: &str) -> Result<()> {
-        let now = Utc::now();
+pub async fn start_session(&mut self, category: &str, category_id: Option<i64>, notes: Option<String>, card_id: Option<String>, source: &str) -> Result<()> {
+    let now = Utc::now();
 
-        let existing: Option<(i64,)> = sqlx::query_as(
-            "SELECT id FROM sessions WHERE end_time IS NULL LIMIT 1",
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+    let existing: Option<(i64,)> = sqlx::query_as(
+        "SELECT id FROM sessions WHERE end_time IS NULL LIMIT 1",
+    )
+    .fetch_optional(&self.pool)
+    .await?;
 
-        if existing.is_some() {
-            return Err(StorageError::ActiveSessionExists.into());
-        }
-
-        sqlx::query(
-            "INSERT INTO sessions (category, start_time, notes, card_id, source) VALUES ($1, $2, $3, $4, $5)",
-        )
-        .bind(category)
-        .bind(now)
-        .bind(notes)
-        .bind(card_id)
-        .bind(source)
-        .execute(&self.pool)
-        .await
-        .context("Failed to start session")?;
-
-        Ok(())
+    if existing.is_some() {
+        return Err(StorageError::ActiveSessionExists.into());
     }
+
+    sqlx::query(
+        "INSERT INTO sessions (category, category_id, start_time, notes, card_id, source) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(category)
+    .bind(category_id)
+    .bind(now)
+    .bind(notes)
+    .bind(card_id)
+    .bind(source)
+    .execute(&self.pool)
+    .await
+    .context("Failed to start session")?;
+
+    Ok(())
+}
 
     pub async fn stop_session(&mut self) -> Result<Session> {
         let active = self.get_active_session().await?
@@ -161,37 +176,37 @@ impl Storage {
         Ok(session)
     }
 
-    pub async fn get_active_session(&self) -> Result<Option<Session>> {
-        let row: Option<SessionRow> = sqlx::query_as(
-            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions WHERE end_time IS NULL LIMIT 1",
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+pub async fn get_active_session(&self) -> Result<Option<Session>> {
+    let row: Option<SessionRow> = sqlx::query_as(
+        "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions WHERE end_time IS NULL LIMIT 1",
+    )
+    .fetch_optional(&self.pool)
+    .await?;
 
-        Ok(row.map(Session::from))
-    }
+    Ok(row.map(Session::from))
+}
 
-    pub async fn get_active_session_by_card(&self, card_id: &str) -> Result<Option<Session>> {
-        let row: Option<SessionRow> = sqlx::query_as(
-            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions WHERE card_id = $1 AND end_time IS NULL LIMIT 1",
-        )
-        .bind(card_id)
-        .fetch_optional(&self.pool)
-        .await?;
+pub async fn get_active_session_by_card(&self, card_id: &str) -> Result<Option<Session>> {
+    let row: Option<SessionRow> = sqlx::query_as(
+        "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions WHERE card_id = $1 AND end_time IS NULL LIMIT 1",
+    )
+    .bind(card_id)
+    .fetch_optional(&self.pool)
+    .await?;
 
-        Ok(row.map(Session::from))
-    }
+    Ok(row.map(Session::from))
+}
 
-    pub async fn list_sessions(&self, limit: usize) -> Result<Vec<Session>> {
-        let rows: Vec<SessionRow> = sqlx::query_as(
-            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions ORDER BY start_time DESC LIMIT $1",
-        )
-        .bind(limit as i64)
-        .fetch_all(&self.pool)
-        .await?;
+pub async fn list_sessions(&self, limit: usize) -> Result<Vec<Session>> {
+    let rows: Vec<SessionRow> = sqlx::query_as(
+        "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions ORDER BY start_time DESC LIMIT $1",
+    )
+    .bind(limit as i64)
+    .fetch_all(&self.pool)
+    .await?;
 
-        Ok(rows.into_iter().map(Session::from).collect())
-    }
+    Ok(rows.into_iter().map(Session::from).collect())
+}
 
     pub async fn add_manual_session(&mut self, category: &str, start: DateTime<Utc>, end: DateTime<Utc>, notes: Option<String>) -> Result<()> {
         sqlx::query(
@@ -208,16 +223,16 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn get_session_by_id(&self, id: i64) -> Result<Option<Session>> {
-        let row: Option<SessionRow> = sqlx::query_as(
-            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+pub async fn get_session_by_id(&self, id: i64) -> Result<Option<Session>> {
+    let row: Option<SessionRow> = sqlx::query_as(
+        "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&self.pool)
+    .await?;
 
-        Ok(row.map(Session::from))
-    }
+    Ok(row.map(Session::from))
+}
 
     pub async fn update_session(&mut self, session: &Session) -> Result<()> {
         let id = session.id.ok_or_else(|| anyhow::anyhow!("Cannot update session without ID"))?;
@@ -236,30 +251,30 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn has_overlap(&self, start: DateTime<Utc>, end: DateTime<Utc>, ignore_id: Option<i64>) -> Result<Option<Session>> {
-        let row: Option<SessionRow> = if let Some(id) = ignore_id {
-            sqlx::query_as(
-                "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions \
-                WHERE id != $1 AND (start_time < $3 AND (end_time > $2 OR end_time IS NULL)) LIMIT 1",
-            )
-            .bind(id)
-            .bind(start)
-            .bind(end)
-            .fetch_optional(&self.pool)
-            .await?
-        } else {
-            sqlx::query_as(
-                "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions \
-                WHERE (start_time < $2 AND (end_time > $1 OR end_time IS NULL)) LIMIT 1",
-            )
-            .bind(start)
-            .bind(end)
-            .fetch_optional(&self.pool)
-            .await?
-        };
+pub async fn has_overlap(&self, start: DateTime<Utc>, end: DateTime<Utc>, ignore_id: Option<i64>) -> Result<Option<Session>> {
+    let row: Option<SessionRow> = if let Some(id) = ignore_id {
+        sqlx::query_as(
+            "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions \
+            WHERE id != $1 AND (start_time < $3 AND (end_time > $2 OR end_time IS NULL)) LIMIT 1",
+        )
+        .bind(id)
+        .bind(start)
+        .bind(end)
+        .fetch_optional(&self.pool)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions \
+            WHERE (start_time < $2 AND (end_time > $1 OR end_time IS NULL)) LIMIT 1",
+        )
+        .bind(start)
+        .bind(end)
+        .fetch_optional(&self.pool)
+        .await?
+    };
 
-        Ok(row.map(Session::from))
-    }
+    Ok(row.map(Session::from))
+}
 
     pub async fn get_last_session_end(&self) -> Result<Option<DateTime<Utc>>> {
         let row: Option<(Option<DateTime<Utc>>,)> = sqlx::query_as(
@@ -271,35 +286,209 @@ impl Storage {
         Ok(row.and_then(|r| r.0))
     }
 
-    pub async fn get_last_session(&self) -> Result<Option<Session>> {
-        let row: Option<SessionRow> = sqlx::query_as(
-            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions ORDER BY id DESC LIMIT 1",
+pub async fn get_last_session(&self) -> Result<Option<Session>> {
+    let row: Option<SessionRow> = sqlx::query_as(
+        "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions ORDER BY id DESC LIMIT 1",
+    )
+    .fetch_optional(&self.pool)
+    .await?;
+
+    Ok(row.map(Session::from))
+}
+
+pub async fn list_sessions_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Session>> {
+    let rows: Vec<SessionRow> = sqlx::query_as(
+        "SELECT id, category, category_id, start_time, end_time, notes, card_id, source FROM sessions \
+        WHERE start_time >= $1 AND start_time <= $2 ORDER BY start_time ASC",
+    )
+    .bind(start)
+    .bind(end)
+    .fetch_all(&self.pool)
+    .await?;
+
+    Ok(rows.into_iter().map(Session::from).collect())
+}
+
+pub async fn delete_session(&mut self, id: i64) -> Result<()> {
+    sqlx::query("DELETE FROM sessions WHERE id = $1")
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+
+    Ok(())
+}
+
+    pub async fn find_or_create_category(&self, name: &str, parent_id: Option<i64>) -> Result<Category> {
+        let existing: Option<(i64, String, Option<i64>)> = sqlx::query_as(
+            "SELECT id, name, parent_id FROM categories WHERE name = $1 AND parent_id IS NOT DISTINCT FROM $2"
         )
+        .bind(name)
+        .bind(parent_id)
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(Session::from))
+        if let Some((id, cat_name, par_id)) = existing {
+            return Ok(Category {
+                id: Some(id),
+                name: cat_name,
+                main: String::new(),
+                sub: None,
+                parent_id: par_id,
+            });
+        }
+
+        let result = sqlx::query(
+            "INSERT INTO categories (name, parent_id) VALUES ($1, $2) RETURNING id, name, parent_id"
+        )
+        .bind(name)
+        .bind(parent_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let id: i64 = result.get("id");
+        let cat_name: String = result.get("name");
+        let par_id: Option<i64> = result.get("parent_id");
+
+        Ok(Category {
+            id: Some(id),
+            name: cat_name,
+            main: String::new(),
+            sub: None,
+            parent_id: par_id,
+        })
     }
 
-    pub async fn list_sessions_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Session>> {
-        let rows: Vec<SessionRow> = sqlx::query_as(
-            "SELECT id, category, start_time, end_time, notes, card_id, source FROM sessions \
-            WHERE start_time >= $1 AND start_time <= $2 ORDER BY start_time ASC",
+    pub async fn get_category_tree(&self) -> Result<Vec<CategoryTreeNode>> {
+        let mains: Vec<CategoryRow> = sqlx::query_as(
+            "SELECT id, name, parent_id, created_at FROM categories WHERE parent_id IS NULL ORDER BY name"
         )
-        .bind(start)
-        .bind(end)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(Session::from).collect())
+        let mut tree = Vec::new();
+        for main in mains {
+            let subs: Vec<CategoryRow> = sqlx::query_as(
+                "SELECT id, name, parent_id, created_at FROM categories WHERE parent_id = $1 ORDER BY name"
+            )
+            .bind(main.id)
+            .fetch_all(&self.pool)
+            .await?;
+
+            let main_category = Category {
+                id: Some(main.id),
+                name: main.name.clone(),
+                main: main.name.clone(),
+                sub: None,
+                parent_id: None,
+            };
+
+            let subcategories: Vec<Category> = subs.into_iter().map(|s| {
+                Category {
+                    id: Some(s.id),
+                    name: s.name.clone(),
+                    main: main.name.clone(),
+                    sub: Some(s.name),
+                    parent_id: s.parent_id,
+                }
+            }).collect();
+
+            tree.push(CategoryTreeNode {
+                main: main_category,
+                subcategories,
+            });
+        }
+
+        Ok(tree)
     }
 
-    pub async fn delete_session(&mut self, id: i64) -> Result<()> {
-        sqlx::query("DELETE FROM sessions WHERE id = $1")
-            .bind(id)
+    pub async fn get_category_by_id(&self, id: i64) -> Result<Option<Category>> {
+        let row: Option<CategoryRow> = sqlx::query_as(
+            "SELECT id, name, parent_id, created_at FROM categories WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| Category {
+            id: Some(r.id),
+            name: r.name,
+            main: String::new(),
+            sub: None,
+            parent_id: r.parent_id,
+        }))
+    }
+
+    pub async fn get_category_by_name(&self, name: &str, parent_id: Option<i64>) -> Result<Option<Category>> {
+        let row: Option<CategoryRow> = sqlx::query_as(
+            "SELECT id, name, parent_id, created_at FROM categories WHERE name = $1 AND parent_id IS NOT DISTINCT FROM $2"
+        )
+        .bind(name)
+        .bind(parent_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| Category {
+            id: Some(r.id),
+            name: r.name,
+            main: String::new(),
+            sub: None,
+            parent_id: r.parent_id,
+        }))
+    }
+
+    pub async fn delete_category(&self, category_id: i64) -> Result<bool> {
+        let count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sessions WHERE category_id = $1"
+        )
+        .bind(category_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        if count.0 > 0 {
+            return Err(StorageError::CategoryInUse.into());
+        }
+
+        sqlx::query("DELETE FROM categories WHERE parent_id = $1")
+            .bind(category_id)
             .execute(&self.pool)
             .await?;
 
-        Ok(())
+        sqlx::query("DELETE FROM categories WHERE id = $1")
+            .bind(category_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(true)
+    }
+
+    pub async fn get_category_usage_stats(&self) -> Result<Vec<(String, i64)>> {
+        let stats: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT c.name, COUNT(s.id) as session_count 
+             FROM categories c 
+             LEFT JOIN sessions s ON s.category_id = c.id 
+             GROUP BY c.id, c.name 
+             ORDER BY session_count DESC"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(stats)
+    }
+
+    pub async fn get_session_count_by_category(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<(String, i64)>> {
+        let stats: Vec<(String, i64)> = sqlx::query_as(
+            "SELECT c.name, COUNT(s.id) as session_count 
+             FROM categories c 
+             INNER JOIN sessions s ON s.category_id = c.id 
+             WHERE s.start_time >= $1 AND s.start_time <= $2
+             GROUP BY c.id, c.name 
+             ORDER BY session_count DESC"
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(stats)
     }
 }

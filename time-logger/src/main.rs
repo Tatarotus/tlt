@@ -344,25 +344,62 @@ async fn main() -> Result<()> {
             let streak = service.get_streak(&category).await?;
             println!("{}: {}-day streak", category, streak);
         }
-        Commands::Goal { sub } => {
-            let mut service = TimeLoggerService::new().await?;
-            match sub {
-                time_logger::cli::GoalCommands::Set { category, duration } => {
-                    service.set_goal(category.clone(), duration.clone()).await?;
-                    println!("Goal set for {}: {}", category, duration);
+Commands::Goal { sub } => {
+        let mut service = TimeLoggerService::new().await?;
+        match sub {
+            time_logger::cli::GoalCommands::Set { category, duration } => {
+                service.set_goal(category.clone(), duration.clone()).await?;
+                println!("Goal set for {}: {}", category, duration);
+            }
+            time_logger::cli::GoalCommands::List => {
+                let goals = service.list_goals().await?;
+                let mut table = Table::new();
+                table.set_header(vec!["Category", "Daily Goal"]);
+                for goal in goals {
+                    table.add_row(vec![goal.category, format_duration_short(Duration::minutes(goal.duration_minutes))]);
                 }
-                time_logger::cli::GoalCommands::List => {
-                    let goals = service.list_goals().await?;
+                println!("{}", table);
+            }
+        }
+    }
+    Commands::Category { sub } => {
+        let service = TimeLoggerService::new().await?;
+        match sub {
+            time_logger::cli::CategoryCommands::List => {
+                let tree = service.get_category_tree().await?;
+                if tree.is_empty() {
+                    println!("No categories yet. Start a session to create categories.");
+                } else {
+                    println!("\n📁 Categories\n");
+                    for node in tree {
+                        let sub_count = node.subcategories.len();
+                        if sub_count == 0 {
+                            println!("  {}", node.main.name);
+                        } else {
+                            println!("  {} ({} subcategories)", node.main.name, sub_count);
+                            for sub in node.subcategories {
+                                println!("    └── {}", sub.name);
+                            }
+                        }
+                    }
+                }
+            }
+            time_logger::cli::CategoryCommands::Stats => {
+                let stats = service.get_category_stats().await?;
+                if stats.is_empty() {
+                    println!("No category usage data yet.");
+                } else {
                     let mut table = Table::new();
-                    table.set_header(vec!["Category", "Daily Goal"]);
-                    for goal in goals {
-                        table.add_row(vec![goal.category, format_duration_short(Duration::minutes(goal.duration_minutes))]);
+                    table.set_header(vec!["Category", "Sessions"]);
+                    for (name, count) in stats {
+                        table.add_row(vec![name, count.to_string()]);
                     }
                     println!("{}", table);
                 }
             }
         }
     }
+}
 
     Ok(())
 }

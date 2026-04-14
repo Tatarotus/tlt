@@ -208,6 +208,11 @@ pub enum Commands {
         #[command(subcommand)]
         sub: GoalCommands,
     },
+    /// Manage categories and subcategories.
+    Category {
+        #[command(subcommand)]
+        sub: CategoryCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -223,6 +228,18 @@ pub enum GoalCommands {
     },
     /// List all goals.
     List,
+}
+
+#[derive(Subcommand)]
+pub enum CategoryCommands {
+    /// List all categories with hierarchy.
+    ///
+    /// Example: tl category list
+    List,
+    /// Show usage statistics for categories.
+    ///
+    /// Example: tl category stats
+    Stats,
 }
 
 #[cfg(test)]

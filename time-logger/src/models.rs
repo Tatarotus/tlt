@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct Session {
     pub id: Option<i64>,
     pub category: String,
+    pub category_id: Option<i64>,
     pub start_time: DateTime<Utc>,
     pub end_time: Option<DateTime<Utc>>,
     pub notes: Option<String>,
@@ -35,21 +36,30 @@ impl Session {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Category {
+    pub id: Option<i64>,
+    pub name: String,
     pub main: String,
     pub sub: Option<String>,
+    pub parent_id: Option<i64>,
 }
 
 impl Category {
     pub fn parse(s: &str) -> Self {
         if let Some((main, sub)) = s.split_once(':') {
             Self {
+                id: None,
+                name: sub.trim().to_string(),
                 main: main.trim().to_string(),
                 sub: Some(sub.trim().to_string()),
+                parent_id: None,
             }
         } else {
             Self {
+                id: None,
+                name: s.trim().to_string(),
                 main: s.trim().to_string(),
                 sub: None,
+                parent_id: None,
             }
         }
     }
@@ -73,6 +83,25 @@ impl Category {
     pub fn matches_main(&self, main_name: &str) -> bool {
         self.main == main_name
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryTreeNode {
+    pub main: Category,
+    pub subcategories: Vec<Category>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryWithDuration {
+    pub category: String,
+    pub duration_minutes: i64,
+    pub subcategories: Vec<SubcategoryDuration>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubcategoryDuration {
+    pub name: String,
+    pub duration_minutes: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
