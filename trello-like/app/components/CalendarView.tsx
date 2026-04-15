@@ -4,55 +4,34 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { toLocalMidnight, isDateInRange, parseISOLocal, toISOLocalDate } from "@/lib/date-utils";
+import { HIGHLIGHT_COLORS, getColorByName } from "@/lib/highlight-colors";
 
 interface Highlight {
-  id: string;
-  title: string;
-  color: string;
-  startDate: string;
-  endDate: string;
+id: string;
+title: string;
+color: string;
+startDate: string;
+endDate: string;
 }
 
 interface CalendarHighlightProps {
-  highlights: Highlight[];
-  workspaceSlug: string;
-  onHighlightsChange: () => void;
-  onHighlightClick: (highlight: Highlight) => void;
-  taskDots?: { taskId: string; title: string; dueDate: string }[];
+highlights: Highlight[];
+workspaceSlug: string;
+onHighlightsChange: () => void;
+onHighlightClick: (highlight: Highlight) => void;
+taskDots?: { taskId: string; title: string; dueDate: string }[];
 }
 
-const COLORS = [
-  { name: "green", hex: "#22c55e", bg: "bg-green-100", border: "border-green-300", text: "text-green-700", ring: "ring-green-400", dot: "bg-green-500" },
-  { name: "yellow", hex: "#eab308", bg: "bg-yellow-100", border: "border-yellow-300", text: "text-yellow-700", ring: "ring-yellow-400", dot: "bg-yellow-500" },
-  { name: "red", hex: "#ef4444", bg: "bg-red-100", border: "border-red-300", text: "text-red-700", ring: "ring-red-400", dot: "bg-red-500" },
-  { name: "blue", hex: "#3b82f6", bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-700", ring: "ring-blue-400", dot: "bg-blue-500" },
-  { name: "purple", hex: "#a855f7", bg: "bg-purple-100", border: "border-purple-300", text: "text-purple-700", ring: "ring-purple-400", dot: "bg-purple-500" },
-  { name: "pink", hex: "#ec4899", bg: "bg-pink-100", border: "border-pink-300", text: "text-pink-700", ring: "ring-pink-400", dot: "bg-pink-500" },
-  { name: "orange", hex: "#f97316", bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", ring: "ring-orange-400", dot: "bg-orange-500" },
-  { name: "cyan", hex: "#06b6d4", bg: "bg-cyan-100", border: "border-cyan-300", text: "text-cyan-700", ring: "ring-cyan-400", dot: "bg-cyan-500" },
-  { name: "indigo", hex: "#6366f1", bg: "bg-indigo-100", border: "border-indigo-300", text: "text-indigo-700", ring: "ring-indigo-400", dot: "bg-indigo-500" },
-  { name: "gray", hex: "#71717a", bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-700", ring: "ring-gray-400", dot: "bg-gray-500" },
-  { name: "emerald", hex: "#10b981", bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", ring: "ring-emerald-400", dot: "bg-emerald-500" },
-  { name: "rose", hex: "#f43f5e", bg: "bg-rose-100", border: "border-rose-300", text: "text-rose-700", ring: "ring-rose-400", dot: "bg-rose-500" },
-  { name: "amber", hex: "#f59e0b", bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-700", ring: "ring-amber-400", dot: "bg-amber-500" },
-  { name: "sky", hex: "#0ea5e9", bg: "bg-sky-100", border: "border-sky-300", text: "text-sky-700", ring: "ring-sky-400", dot: "bg-sky-500" },
-  { name: "violet", hex: "#8b5cf6", bg: "bg-violet-100", border: "border-violet-300", text: "text-violet-700", ring: "ring-violet-400", dot: "bg-violet-500" },
-  { name: "lime", hex: "#84cc16", bg: "bg-lime-100", border: "border-lime-300", text: "text-lime-700", ring: "ring-lime-400", dot: "bg-lime-500" },
-  { name: "teal", hex: "#14b8a6", bg: "bg-teal-100", border: "border-teal-300", text: "text-teal-700", ring: "ring-teal-400", dot: "bg-teal-500" },
-  { name: "fuchsia", hex: "#d946ef", bg: "bg-fuchsia-100", border: "border-fuchsia-300", text: "text-fuchsia-700", ring: "ring-fuchsia-400", dot: "bg-fuchsia-500" },
-  { name: "slate", hex: "#64748b", bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-700", ring: "ring-slate-400", dot: "bg-slate-500" },
-  { name: "brown", hex: "#78350f", bg: "bg-stone-100", border: "border-stone-300", text: "text-stone-700", ring: "ring-stone-400", dot: "bg-stone-500" },
-];
-
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+"January", "February", "March", "April", "May", "June",
+"July", "August", "September", "October", "November", "December"
 ];
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function getColorClasses(colorName: string) {
-  return COLORS.find(c => c.name === colorName) || COLORS[0];
+const color = getColorByName(colorName);
+return color || HIGHLIGHT_COLORS[0];
 }
 
 function isSameDay(d1: Date, d2: Date): boolean {
@@ -78,7 +57,7 @@ export function CalendarView({
   taskDots = []
 }: CalendarHighlightProps) {
   const [currentYear] = useState(new Date().getFullYear());
-  const [selectedColor, setSelectedColor] = useState<string>("green");
+  const [selectedColor, setSelectedColor] = useState<string>("Crimson");
   const [highlightName, setHighlightName] = useState("");
   const [isCreatingHighlight, setIsCreatingHighlight] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -257,7 +236,7 @@ export function CalendarView({
 
       <div className="space-y-3 mb-6">
         <div className="flex flex-wrap gap-1.5 items-center">
-          {COLORS.slice(0, 5).map(c => (
+          {HIGHLIGHT_COLORS.slice(0, 5).map(c => (
             <button
               key={c.name}
               onClick={() => setSelectedColor(c.name)}
@@ -267,7 +246,7 @@ export function CalendarView({
           ))}
           
           {/* Show the selected color if it's NOT in the first 5 */}
-          {COLORS.slice(5).find(c => c.name === selectedColor) && (
+          {HIGHLIGHT_COLORS.slice(5).find(c => c.name === selectedColor) && (
             <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2">
               <div className="w-px h-4 bg-gray-200 mx-0.5" />
               <button
@@ -295,7 +274,7 @@ export function CalendarView({
 
         {isColorPickerOpen && (
           <div className="p-2 bg-gray-50 rounded-lg border border-gray-200 grid grid-cols-5 gap-2 animate-in fade-in zoom-in-95 duration-200">
-            {COLORS.map(c => (
+            {HIGHLIGHT_COLORS.map(c => (
               <button
                 key={c.name}
                 onClick={() => {
