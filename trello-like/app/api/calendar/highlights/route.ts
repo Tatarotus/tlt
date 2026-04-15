@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { calendarHighlights } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { calendarHighlights, workspaces } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
-import { workspaces } from '@/db/schema';
-import { and, gte, lte } from 'drizzle-orm';
-import { safeToISOString, toISOLocalDate } from '@/lib/date-utils';
+import { safeToISOString } from '@/lib/date-utils';
+import { isValidColor } from '@/lib/highlight-colors';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -60,23 +59,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { workspaceSlug, title, color, startDate, endDate } = body;
 
-    if (!workspaceSlug || !title || !color || !startDate || !endDate) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+if (!workspaceSlug || !title || !color || !startDate || !endDate) {
+return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+}
 
-    if (title.length > 60) {
-      return NextResponse.json({ error: 'Title must be 60 characters or less' }, { status: 400 });
-    }
+if (title.length > 60) {
+return NextResponse.json({ error: 'Title must be 60 characters or less' }, { status: 400 });
+}
 
-    const validColors = [
-      'green', 'yellow', 'red', 'blue', 'purple', 
-      'pink', 'orange', 'cyan', 'indigo', 'gray',
-      'emerald', 'rose', 'amber', 'sky', 'violet',
-      'lime', 'teal', 'fuchsia', 'slate', 'brown'
-    ];
-    if (!validColors.includes(color)) {
-      return NextResponse.json({ error: 'Invalid color' }, { status: 400 });
-    }
+// Validate color against curated palette
+if (!isValidColor(color)) {
+return NextResponse.json({ 
+error: 'Invalid color. Use colors from the highlight palette.',
+validColors: ['crimson', 'sunset', 'amber', 'emerald', 'ocean', 'indigo', 'violet', 'fuchsia', 'rose', 'teal', 'sky', 'slate']
+}, { status: 400 });
+}
 
     const workspace = await db.query.workspaces.findFirst({
       where: and(
