@@ -285,10 +285,7 @@ return (
           </div>
 
           <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-            <div className="flex-1 mr-4 flex items-start gap-4">
-               <button onClick={handleToggleCompleted} className={`mt-6 w-6 h-6 rounded border flex items-center justify-center transition-all cursor-pointer ${completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-gray-400 bg-white'}`}>
-                  {completed && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
-               </button>
+            <div className="flex-1 mr-4">
                <div className="flex-1">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Title</label>
                   <Input value={title} onChange={(e) => setTitle(e.target.value)} className={`text-xl font-bold text-gray-900 border-none px-0 focus:ring-0 h-auto py-0 mb-1 ${completed ? 'line-through text-gray-400' : ''}`}/>
