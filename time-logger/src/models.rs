@@ -112,6 +112,7 @@ pub struct Goal {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
+    pub user_id: Option<String>,
     pub goals: Vec<Goal>,
 }
 

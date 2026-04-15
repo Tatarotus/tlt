@@ -130,32 +130,33 @@ impl Storage {
     }
 
 pub async fn start_session(&mut self, category: &str, category_id: Option<i64>, notes: Option<String>, card_id: Option<String>, source: &str) -> Result<()> {
-    let now = Utc::now();
+let now = Utc::now();
 
-    let existing: Option<(i64,)> = sqlx::query_as(
-        "SELECT id FROM sessions WHERE end_time IS NULL LIMIT 1",
-    )
-    .fetch_optional(&self.pool)
-    .await?;
+let existing: Option<(i64,)> = sqlx::query_as(
+"SELECT id FROM sessions WHERE end_time IS NULL LIMIT 1",
+)
+.fetch_optional(&self.pool)
+.await?;
 
-    if existing.is_some() {
-        return Err(StorageError::ActiveSessionExists.into());
-    }
+if existing.is_some() {
+return Err(StorageError::ActiveSessionExists.into());
+}
 
-    sqlx::query(
-        "INSERT INTO sessions (category, category_id, start_time, notes, card_id, source) VALUES ($1, $2, $3, $4, $5, $6)",
-    )
-    .bind(category)
-    .bind(category_id)
-    .bind(now)
-    .bind(notes)
-    .bind(card_id)
-    .bind(source)
-    .execute(&self.pool)
-    .await
-    .context("Failed to start session")?;
+sqlx::query(
+"INSERT INTO sessions (category, category_id, user_id, start_time, notes, card_id, source) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)",
+)
+.bind(category)
+.bind(category_id)
+.bind("cde3cbc1-f6bf-4cdc-b17c-3317293ed115") // user_id
+.bind(now)
+.bind(notes)
+.bind(card_id)
+.bind(source)
+.execute(&self.pool)
+.await
+.context("Failed to start session")?;
 
-    Ok(())
+Ok(())
 }
 
     pub async fn stop_session(&mut self) -> Result<Session> {
@@ -208,19 +209,20 @@ pub async fn list_sessions(&self, limit: usize) -> Result<Vec<Session>> {
 }
 
 pub async fn add_manual_session(&mut self, category: &str, category_id: Option<i64>, start: DateTime<Utc>, end: DateTime<Utc>, notes: Option<String>) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO sessions (category, category_id, start_time, end_time, notes, source) VALUES ($1, $2, $3, $4, $5, 'cli')",
-    )
-    .bind(category)
-    .bind(category_id)
-    .bind(start)
-    .bind(end)
-    .bind(notes)
-    .execute(&self.pool)
-    .await
-    .context("Failed to add manual session")?;
+sqlx::query(
+"INSERT INTO sessions (category, category_id, user_id, start_time, end_time, notes, source) VALUES ($1, $2, $3::uuid, $4, $5, $6, 'cli')",
+)
+.bind(category)
+.bind(category_id)
+.bind("cde3cbc1-f6bf-4cdc-b17c-3317293ed115") // user_id
+.bind(start)
+.bind(end)
+.bind(notes)
+.execute(&self.pool)
+.await
+.context("Failed to add manual session")?;
 
-    Ok(())
+Ok(())
 }
 
 pub async fn get_session_by_id(&self, id: i64) -> Result<Option<Session>> {
