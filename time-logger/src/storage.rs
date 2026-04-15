@@ -5,6 +5,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres, FromRow, Row};
 use std::env;
 use thiserror::Error;
+use std::path::PathBuf;
 
 #[derive(Error, Debug)]
 pub enum StorageError {
@@ -56,6 +57,7 @@ struct CategoryRow {
 
 pub struct Storage {
     pub pool: Pool<Postgres>,
+    pub user_id: String,
 }
 
 impl Storage {
@@ -69,7 +71,23 @@ impl Storage {
             .await
             .context("Failed to connect to database")?;
 
-        Ok(Storage { pool })
+        // Load user_id from config
+        let config_path = PathBuf::from(env::var("HOME")
+            .unwrap_or_else(|_| ".".to_string()))
+            .join(".config")
+            .join("time-logger")
+            .join("config.json");
+        
+        let user_id = if config_path.exists() {
+            let content = std::fs::read_to_string(&config_path)
+                .unwrap_or_default();
+            let config: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
+            config["user_id"].as_str().unwrap_or("cde3cbc1-f6bf-4cdc-b17c-3317293ed115").to_string()
+        } else {
+            "cde3cbc1-f6bf-4cdc-b17c-3317293ed115".to_string()
+        };
+
+        Ok(Storage { pool, user_id })
     }
 
     pub async fn init_schema(pool: &Pool<Postgres>) -> Result<()> {
@@ -147,7 +165,7 @@ sqlx::query(
 )
 .bind(category)
 .bind(category_id)
-.bind("cde3cbc1-f6bf-4cdc-b17c-3317293ed115") // user_id
+.bind(self.user_id.clone())
 .bind(now)
 .bind(notes)
 .bind(card_id)
@@ -214,7 +232,7 @@ sqlx::query(
 )
 .bind(category)
 .bind(category_id)
-.bind("cde3cbc1-f6bf-4cdc-b17c-3317293ed115") // user_id
+.bind(self.user_id.clone())
 .bind(start)
 .bind(end)
 .bind(notes)
