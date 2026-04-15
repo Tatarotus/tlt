@@ -114,12 +114,24 @@ impl TimeLoggerService {
         };
 
         self.validate_overlap(st, et, None).await?;
-        self.storage.add_manual_session(category, st, et, notes.clone()).await?;
+
+        let parsed = Category::parse(category);
+        let main_category = self.storage.find_or_create_category(&parsed.main, None).await?;
+        let main_id = main_category.id;
+        let final_category = if let Some(sub) = &parsed.sub {
+            let sub_category = self.storage.find_or_create_category(sub, main_id).await?;
+            sub_category
+        } else {
+            main_category
+        };
+        let category_id = final_category.id;
+
+        self.storage.add_manual_session(category, category_id, st, et, notes.clone()).await?;
 
         Ok(Session {
             id: None,
             category: category.to_string(),
-            category_id: None,
+            category_id,
             start_time: st,
             end_time: Some(et),
             notes,
@@ -145,12 +157,24 @@ impl TimeLoggerService {
         }
 
         self.validate_overlap(st, et, None).await?;
-        self.storage.add_manual_session(category, st, et, notes.clone()).await?;
+
+        let parsed = Category::parse(category);
+        let main_category = self.storage.find_or_create_category(&parsed.main, None).await?;
+        let main_id = main_category.id;
+        let final_category = if let Some(sub) = &parsed.sub {
+            let sub_category = self.storage.find_or_create_category(sub, main_id).await?;
+            sub_category
+        } else {
+            main_category
+        };
+        let category_id = final_category.id;
+
+        self.storage.add_manual_session(category, category_id, st, et, notes.clone()).await?;
 
         Ok(Session {
             id: None,
             category: category.to_string(),
-            category_id: None,
+            category_id,
             start_time: st,
             end_time: Some(et),
             notes,
@@ -382,15 +406,27 @@ impl TimeLoggerService {
 
             let st = last_end;
             let et = st + dur;
-            println!("Logging: {} ({} - {})",
-                category,
-                st.with_timezone(&Local).format("%H:%M"),
-                et.with_timezone(&Local).format("%H:%M")
-            );
+println!("Logging: {} ({} - {})",
+            category,
+            st.with_timezone(&Local).format("%H:%M"),
+            et.with_timezone(&Local).format("%H:%M")
+        );
 
-            self.validate_overlap(st, et, None).await?;
-            self.storage.add_manual_session(category, st, et, notes).await?;
-            last_end = et;
+        self.validate_overlap(st, et, None).await?;
+
+        let parsed = Category::parse(category);
+        let main_category = self.storage.find_or_create_category(&parsed.main, None).await?;
+        let main_id = main_category.id;
+        let final_category = if let Some(sub) = &parsed.sub {
+            let sub_category = self.storage.find_or_create_category(sub, main_id).await?;
+            sub_category
+        } else {
+            main_category
+        };
+        let category_id = final_category.id;
+
+        self.storage.add_manual_session(category, category_id, st, et, notes).await?;
+        last_end = et;
         }
 
         Ok(())
