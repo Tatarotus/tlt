@@ -52,7 +52,6 @@ struct CategoryRow {
     id: i64,
     name: String,
     parent_id: Option<i64>,
-    created_at: Option<DateTime<Utc>>,
 }
 
 pub struct Storage {
