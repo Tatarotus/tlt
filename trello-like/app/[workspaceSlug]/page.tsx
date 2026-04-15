@@ -33,16 +33,16 @@ export default async function WorkspacePage({ params }: { params: Promise<{ work
     );
   }
 
-  const highlights = await db.query.calendarHighlights.findMany({
-    where: eq(calendarHighlights.workspaceId, workspace.id),
-  });
+const highlights = await db.query.calendarHighlights.findMany({
+where: eq(calendarHighlights.workspaceId, workspace.id),
+});
 
-  return (
-    <WorkspaceCalendar
-      workspace={workspace}
-      initialHighlights={highlights.map(h => {
-        const finalStartDate = h.startDate || (h as any).start_date;
-        const finalEndDate = h.endDate || (h as any).end_date;
+return (
+<WorkspaceCalendar
+workspace={workspace}
+initialHighlights={highlights.map(h => {
+const finalStartDate = h.startDate;
+const finalEndDate = h.endDate;
         
         return {
           id: h.id,

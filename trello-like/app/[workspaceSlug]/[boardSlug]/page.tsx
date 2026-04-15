@@ -33,23 +33,26 @@ export default async function BoardPage({ params }: { params: Promise<{ workspac
     );
   }
 
-  const board = await db.query.boards.findFirst({
-    where: and(eq(boards.slug, boardSlug), eq(boards.workspaceId, workspace.id)),
-    with: {
-      lists: {
-        with: {
-          tasks: {
-            where: (tasks, { isNull }) => isNull(tasks.parentId),
-            with: {
-              children: true
-            },
-            orderBy: (tasks, { asc }) => [asc(tasks.order)]
-          }
-        },
-        orderBy: (lists, { asc }) => [asc(lists.order)]
-      }
-    }
-  });
+const board = await db.query.boards.findFirst({
+where: and(eq(boards.slug, boardSlug), eq(boards.workspaceId, workspace.id)),
+with: {
+lists: {
+with: {
+tasks: {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+where: (_tasks: any, { isNull }: any) => isNull(_tasks.parentId),
+with: {
+children: true
+},
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+orderBy: (_tasks: any, { asc }: any) => [asc(_tasks.order)]
+}
+},
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+orderBy: (_lists: any, { asc }: any) => [asc(_lists.order)]
+}
+}
+});
 
   if (!board) {
     return (
@@ -70,9 +73,9 @@ export default async function BoardPage({ params }: { params: Promise<{ workspac
         workspaceSlug={workspace.slug}
       />
       
-      <div className="flex-1 overflow-hidden relative">
-        <KanbanBoard initialLists={board.lists} boardId={board.id} />
-      </div>
+<div className="flex-1 overflow-hidden relative">
+<KanbanBoard initialLists={board.lists as any} boardId={board.id} />
+</div>
     </main>
   );
 }

@@ -2,35 +2,40 @@
 
 import { db } from '@/db';
 import { sessions } from '@/db/schema';
-import { desc, gte, and, isNotNull } from 'drizzle-orm';
+import { desc, gte, and, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
 export type DashboardRange = 'today' | 'week' | 'month' | 'all';
 
 export async function getDashboardData(range: DashboardRange = 'week') {
-  const session = await getSession();
-  if (!session) return { success: false, error: "Unauthorized" };
+const session = await getSession();
+if (!session) return { success: false, error: "Unauthorized" };
 
-  try {
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (range === 'today') {
-      startDate.setHours(0, 0, 0, 0);
-    } else if (range === 'week') {
-      startDate.setDate(now.getDate() - 7);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (range === 'month') {
-      startDate.setMonth(now.getMonth() - 1);
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate = new Date(0); // All time
-    }
+try {
+const now = new Date();
+let startDate = new Date();
 
-    // Fetch all sessions within range for charts and metrics
-    const allSessions = await db.select().from(sessions)
-      .where(gte(sessions.startTime, startDate))
-      .orderBy(desc(sessions.startTime));
+if (range === 'today') {
+startDate.setHours(0, 0, 0, 0);
+} else if (range === 'week') {
+startDate.setDate(now.getDate() - 7);
+startDate.setHours(0, 0, 0, 0);
+} else if (range === 'month') {
+startDate.setMonth(now.getMonth() - 1);
+startDate.setHours(0, 0, 0, 0);
+} else {
+startDate = new Date(0); // All time
+}
+
+// Fetch all sessions within range for charts and metrics
+const allSessions = await db.select().from(sessions)
+.where(
+and(
+gte(sessions.startTime, startDate),
+eq(sessions.userId, session.userId)
+)
+)
+.orderBy(desc(sessions.startTime));
 
     // Calculate Metrics
     const todayStart = new Date();
@@ -66,27 +71,28 @@ export async function getDashboardData(range: DashboardRange = 'week') {
       }))
       .sort((a, b) => b.value - a.value);
 
-    // Chart Data: Daily Time (Stacked Bar)
-    const dailyData: Record<string, any> = {};
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(now.getDate() - (6 - i));
-      return d.toISOString().split('T')[0];
-    });
+// Chart Data: Daily Time (Stacked Bar)
+const dailyData: Record<string, Record<string, number | string>> = {};
+const last7Days = Array.from({ length: 7 }, (_, i) => {
+const d = new Date();
+d.setDate(now.getDate() - (6 - i));
+return d.toISOString().split('T')[0];
+});
 
-    last7Days.forEach(date => {
-      dailyData[date] = { date };
-    });
+last7Days.forEach(date => {
+dailyData[date] = { date };
+});
 
-    allSessions.forEach(s => {
-      const dateStr = new Date(s.startTime).toISOString().split('T')[0];
-      if (dailyData[dateStr]) {
-        const start = new Date(s.startTime);
-        const end = s.endTime ? new Date(s.endTime) : new Date();
-        const duration = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
-        dailyData[dateStr][s.category] = (dailyData[dateStr][s.category] || 0) + duration;
-      }
-    });
+allSessions.forEach(s => {
+const dateStr = new Date(s.startTime).toISOString().split('T')[0];
+if (dailyData[dateStr]) {
+const start = new Date(s.startTime);
+const end = s.endTime ? new Date(s.endTime) : new Date();
+const duration = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+const currentValue = dailyData[dateStr][s.category] as number | undefined;
+dailyData[dateStr][s.category] = (currentValue || 0) + duration;
+}
+});
 
     const barData = Object.values(dailyData);
 

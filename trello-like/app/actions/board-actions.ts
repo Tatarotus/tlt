@@ -36,33 +36,33 @@ export async function createBoard(name: string, workspaceId: string, slug?: stri
       workspaceId,
     }).returning();
     
-    return { success: true, board: newBoard[0] };
-  } catch (error) {
-    return { success: false, error: "Database insert failed" };
-  }
+return { success: true, board: newBoard[0] };
+} catch {
+return { success: false, error: "Database insert failed" };
+}
 }
 
 export async function updateBoard(
-  boardId: string,
-  data: { name?: string; slug?: string }
+boardId: string,
+data: { name?: string; slug?: string }
 ) {
-  const session = await getSession();
-  if (!session) return { success: false, error: "Unauthorized" };
+const session = await getSession();
+if (!session) return { success: false, error: "Unauthorized" };
 
-  try {
-    const board = await db.query.boards.findFirst({
-      where: eq(boards.id, boardId),
-      with: { workspace: true }
-    });
+try {
+const board = await db.query.boards.findFirst({
+where: eq(boards.id, boardId),
+with: { workspace: true }
+});
 
-    if (!board || board.workspace?.userId !== session.userId) {
-      return { success: false, error: "Unauthorized or not found" };
-    }
+if (!board || (board.workspace as any)?.userId !== session.userId) {
+return { success: false, error: "Unauthorized or not found" };
+}
 
-    const updateData: any = { ...data };
-    if (data.slug) {
-      updateData.slug = slugify(data.slug);
-    }
+const updateData: { name?: string; slug?: string } = { ...data };
+if (data.slug) {
+updateData.slug = slugify(data.slug);
+}
 
     const updated = await db.update(boards)
       .set(updateData)
@@ -87,9 +87,9 @@ export async function deleteBoard(boardId: string) {
       with: { workspace: true }
     });
 
-    if (!board || board.workspace?.userId !== session.userId) {
-      return { success: false, error: "Unauthorized or not found" };
-    }
+if (!board || (board.workspace as any)?.userId !== session.userId) {
+return { success: false, error: "Unauthorized or not found" };
+}
 
     // CASCADING DELETE: Delete tasks inside the board's lists
     const boardLists = await db.select({ id: lists.id }).from(lists).where(eq(lists.boardId, boardId));

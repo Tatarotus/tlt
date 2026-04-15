@@ -26,9 +26,9 @@ export async function GET(
       return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
     }
 
-    if (highlight.workspace.userId !== session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+if ((highlight.workspace as any).userId !== session.userId) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+}
 
     return NextResponse.json({ success: true, highlight });
   } catch (error) {
@@ -57,13 +57,13 @@ export async function PUT(
       },
     });
 
-    if (!existingHighlight) {
-      return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
-    }
+if (!existingHighlight) {
+return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
+}
 
-    if (existingHighlight.workspace.userId !== session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+if ((existingHighlight.workspace as any).userId !== session.userId) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+}
 
     const updates: Partial<{
       title: string;
@@ -140,13 +140,13 @@ export async function DELETE(
       },
     });
 
-    if (!existingHighlight) {
-      return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
-    }
+if (!existingHighlight) {
+return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
+}
 
-    if (existingHighlight.workspace.userId !== session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+if ((existingHighlight.workspace as any).userId !== session.userId) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+}
 
     await db.delete(calendarHighlights).where(eq(calendarHighlights.id, id));
 

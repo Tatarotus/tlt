@@ -24,9 +24,9 @@ export default function RegisterPage() {
               <Button type="submit" fullWidth>Sign in</Button>
             </div>
           </form>
-          <div className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account? <Link href="/register" className="text-gray-900 font-medium hover:underline">Create an account</Link>
-          </div>
+<div className="mt-6 text-center text-sm text-gray-600">
+Don&apos;t have an account? <Link href="/register" className="text-gray-900 font-medium hover:underline">Create an account</Link>
+</div>
         </div>
       </div>
     </div>

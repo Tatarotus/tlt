@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   DndContext, 
   closestCorners, 
@@ -182,10 +182,10 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
     })
   );
 
-  useEffect(() => {
-      setIsMounted(true);
-      setLists(initialLists);
-  }, [initialLists]);
+useEffect(() => {
+setIsMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
+setLists(initialLists);
+}, [initialLists]);
 
   const handleAddTask = async (listId: string, title: string) => {
     const tempId = `temp-${Date.now()}`;
@@ -380,11 +380,11 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
       const activeListIndex = lists.findIndex((l) => l.id === activeContainer);
       const overListIndex = lists.findIndex((l) => l.id === overContainer);
 
-      if(activeListIndex !== -1 && overListIndex !== -1) {
-          const activeIndex = lists[activeListIndex].tasks.findIndex((t) => t.id === activeId);
-          const overIndex = lists[overListIndex].tasks.findIndex((t) => t.id === overId);
-          
-          let newLists = [...lists];
+if(activeListIndex !== -1 && overListIndex !== -1) {
+const activeIndex = lists[activeListIndex].tasks.findIndex((t) => t.id === activeId);
+const overIndex = lists[overListIndex].tasks.findIndex((t) => t.id === overId);
+
+const newLists = [...lists];
 
           if (activeContainer === overContainer) {
             // Reordering within the same list
@@ -418,20 +418,13 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
                     order: index,
                     listId: overContainer
                 }));
-                 // Auto-timer logic
-                 const normalizedTitle = destList.title.toLowerCase();
-                 if (normalizedTitle === "in progress") {
-                   if (activeTimer?.cardId !== activeId) {
-                     const task = findTask(activeId);
-                     if (task) {
-                       await startTimer(task.title, activeId);
-                     }
-                   }
-                 } else if (normalizedTitle === "done") {
-                   if (activeTimer?.cardId === activeId) {
-                     await stopTimer(activeId);
-                   }
-                 }
+// Auto-stop timer when moving to "Done" list
+const normalizedTitle = destList.title.toLowerCase();
+if (normalizedTitle === "done") {
+if (activeTimer?.cardId === activeId) {
+await stopTimer(activeId);
+}
+}
                  
                  await reorderTasks(updatedTasks);
             }

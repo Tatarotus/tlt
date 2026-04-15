@@ -76,11 +76,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     }
 
-    const [newTag] = await db.insert(tags).values({
-      workspaceId: workspace.id,
-      name,
-      color,
-    }).returning();
+const [newTag] = await db.insert(tags).values({
+id: crypto.randomUUID(),
+workspaceId: workspace.id,
+name,
+color,
+}).returning();
 
     return NextResponse.json({ success: true, tag: newTag });
   } catch (error) {

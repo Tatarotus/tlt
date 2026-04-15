@@ -17,12 +17,12 @@ export async function proxy(req: NextRequest) {
   const cookie = req.cookies.get('session')?.value;
   let session = null;
 
-  if (cookie) {
-    try {
-      const { payload } = await jwtVerify(cookie, encodedKey, { algorithms: ['HS256'] });
-      session = payload;
-    } catch (e) {}
-  }
+if (cookie) {
+try {
+const { payload } = await jwtVerify(cookie, encodedKey, { algorithms: ['HS256'] });
+session = payload;
+} catch {}
+}
 
   // Redirect unauthenticated users
   if (isProtectedRoute && !session?.userId) {

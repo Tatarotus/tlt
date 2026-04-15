@@ -1,6 +1,6 @@
 # ⏱️ tl — Time Logger
 
-**tl** (Time Logger) is a high-signal, local-first feedback engine for your life. Built in Rust for maximum reliability and speed, it moves beyond simple time tracking into deep habit insights and data-driven reflection.
+**tl** (Time Logger) is a high-signal time tracking CLI built in Rust for maximum reliability and speed. It moves beyond simple time tracking into deep habit insights and data-driven reflection.
 
 It follows a strict philosophy: **Service is the brain, data is sacred, and friction is the enemy.**
 
@@ -14,19 +14,24 @@ It follows a strict philosophy: **Service is the brain, data is sacred, and fric
 - **Hierarchical Categories:** Use `category:sub-category` (e.g., `coding:rust`) for granular tracking with aggregated reporting.
 - **Insight Layer:** Track streaks, set daily goals, and perform week-over-week comparisons.
 - **Obsidian Integration:** Export your logs directly into your second brain as beautifully formatted daily notes.
-- **Production-Grade Storage:** Powered by SQLite with optimized indexes for lightning-fast range queries and data integrity.
-- **Local-First & Private:** Your data stays in `~/.local/share/time-logger/`, always under your control.
+- **Production-Grade Storage:** Powered by PostgreSQL with optimized indexes for lightning-fast range queries and data integrity.
+- **Web Integration:** Seamlessly integrates with the Next.js Kanban app for GUI-based time tracking.
 
 ---
 
 ## 🛠️ Installation
 
-Ensure you have [Rust](https://www.rust-lang.org/) installed, then clone and build:
+Ensure you have [Rust](https://www.rust-lang.org/) installed and a PostgreSQL database available, then clone and build:
 
 ```bash
 git clone https://github.com/youruser/time-logger.git
 cd time-logger
 cargo install --path .
+```
+
+Set up your database connection:
+```bash
+export DATABASE_URL=postgresql://user:password@localhost:5432/tlt
 ```
 
 ---
@@ -133,7 +138,11 @@ Your data is portable and safe.
 
 ## ⚙️ Configuration
 
-The database is stored at `~/.local/share/time-logger/timelog.db`.  
+The application uses PostgreSQL for data storage. Set the `DATABASE_URL` environment variable:
+```bash
+export DATABASE_URL=postgresql://user:password@localhost:5432/tlt
+```
+
 Your goals and preferences are stored at `~/.config/time-logger/config.json`.
 
 ---

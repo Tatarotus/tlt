@@ -1,492 +1,263 @@
-# Time-Logger Subcategory Support - Technical Implementation Plan
-
-## Overview
-
-Add hierarchical category support to time-logger with:
-- Proper database table with parent_id self-referential hierarchy
-- Auto-creation of categories when logging time
-- CLI commands for category management
-- Detailed/subcategory-aware reports
-- Dashboard visualization support via Next.js web app
-
----
-
-## Part 1: Database Schema
-
-### Current State
-- Categories stored as plain TEXT strings in sessions table
-- No category table exists
-- Parsing happens in application code only
-
-### Required Changes
-
-#### 1.1 Create Categories Table (PostgreSQL)
-
-```sql
-CREATE TABLE IF NOT EXISTS categories (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    parent_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(name, parent_id)
-);
-
--- Index for faster lookups
-CREATE INDEX idx_categories_name_parent ON categories(name, parent_id);
-CREATE INDEX idx_categories_parent ON categories(parent_id);
-```
-
-#### 1.2 Add foreign key to sessions table (optional, for data integrity)
-
-```sql
-ALTER TABLE sessions ADD COLUMN category_id INTEGER REFERENCES categories(id);
-CREATE INDEX idx_sessions_category_id ON sessions(category_id);
-```
-
----
-
-## Part 2: Rust Models (models.rs)
-
-### Required Changes
-
-Add `Category` struct with database ID:
-
-```rust
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Category {
-    pub id: Option<i64>,           // Database ID
-    pub name: String,              // Display name (e.g., "trello")
-    pub main: String,              // Main category name (e.g., "Code")
-    pub sub: Option<String>,       // Subcategory name (e.g., "trello")
-    pub parent_id: Option<i64>,    // Parent category ID for subcategories
-}
-
-impl Category {
-    pub fn parse(s: &str) -> Self {
-        if let Some((main, sub)) = s.split_once(':') {
-            Category {
-                id: None,
-                name: sub.trim().to_string(),
-                main: main.trim().to_string(),
-                sub: Some(sub.trim().to_string()),
-                parent_id: None,
-            }
-        } else {
-            Category {
-                id: None,
-                name: s.trim().to_string(),
-                main: s.trim().to_string(),
-                sub: None,
-                parent_id: None,
-            }
-        }
-    }
-
-    pub fn full(&self) -> String {
-        match &self.sub {
-            Some(sub) => format!("{}:{}", self.main, sub),
-            None => self.main.clone(),
-        }
-    }
-}
-```
-
----
-
-## Part 3: Storage Layer (storage.rs)
-
-### Required Methods
-
-#### 3.1 Category CRUD Operations
-
-```rust
-impl Storage {
-    /// Find or create a category by name and parent
-    pub async fn find_or_create_category(
-        &self, 
-        name: &str, 
-        parent_id: Option<i64>
-    ) -> Result<Category> {
-        // Try to find existing
-        let existing = sqlx::query_as::<_, CategoryRow>(
-            "SELECT id, name, parent_id, created_at FROM categories 
-             WHERE name = $1 AND parent_id IS NOT DISTINCT FROM $2"
-        )
-        .bind(name)
-        .bind(parent_id)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        if let Some(row) = existing {
-            return Ok(Category {
-                id: Some(row.id),
-                name: row.name,
-                main: String::new(), // Will be set by caller
-                sub: None,
-                parent_id: row.parent_id,
-            });
-        }
-
-        // Create new
-        let row = sqlx::query(
-            "INSERT INTO categories (name, parent_id) VALUES ($1, $2) 
-             RETURNING id, name, parent_id, created_at"
-        )
-        .bind(name)
-        .bind(parent_id)
-        .fetch_one(&self.pool)
-        .await?;
-
-        Ok(Category {
-            id: Some(row.id),
-            name: row.name,
-            main: String::new(),
-            sub: None,
-            parent_id: row.parent_id,
-        })
-    }
-
-    /// Get category hierarchy (all main categories with their subcategories)
-    pub async fn get_category_tree(&self) -> Result<Vec<CategoryTreeNode>> {
-        let mains = sqlx::query_as::<_, CategoryRow>(
-            "SELECT id, name, parent_id, created_at FROM categories 
-             WHERE parent_id IS NULL ORDER BY name"
-        )
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut tree = Vec::new();
-        for main in mains {
-            let subs = sqlx::query_as::<_, CategoryRow>(
-                "SELECT id, name, parent_id, created_at FROM categories 
-                 WHERE parent_id = $1 ORDER BY name"
-            )
-            .bind(main.id)
-            .fetch_all(&self.pool)
-            .await?;
-
-            tree.push(CategoryTreeNode {
-                main: Category { id: Some(main.id), name: main.name, main: main.name.clone(), sub: None, parent_id: None },
-                subcategories: subs.into_iter().map(|s| {
-                    Category { id: Some(s.id), name: s.name, main: main.name.clone(), sub: Some(s.name.clone()), parent_id: Some(s.parent_id) }
-                }).collect(),
-            });
-        }
-        Ok(tree)
-    }
-
-    /// Delete a category (only if no sessions attached)
-    pub async fn delete_category(&self, category_id: i64) -> Result<bool> {
-        // Check if category has sessions
-        let count: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM sessions WHERE category_id = $1"
-        )
-        .bind(category_id)
-        .fetch_one(&self.pool)
-        .await?;
-
-        if count.0 > 0 {
-            return Err(Error::CategoryInUse);
-        }
-
-        // Delete subcategories first
-        sqlx::query("DELETE FROM categories WHERE parent_id = $1")
-            .bind(category_id)
-            .execute(&self.pool)
-            .await?;
-
-        // Delete main category
-        sqlx::query("DELETE FROM categories WHERE id = $1")
-            .bind(category_id)
-            .execute(&self.pool)
-            .await?;
-
-        Ok(true)
-    }
-
-    /// Update session to reference category by ID
-    pub async fn link_session_to_category(
-        &self, 
-        session_id: i64, 
-        category_id: i64
-    ) -> Result<()> {
-        sqlx::query("UPDATE sessions SET category_id = $1 WHERE id = $2")
-            .bind(category_id)
-            .bind(session_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-}
-```
-
-#### 3.2 Error Types
-
-Add to error handling:
-
-```rust
-#[derive(Debug)]
-pub enum Error {
-    // ... existing errors
-    CategoryInUse,
-    CategoryNotFound,
-}
-```
-
----
-
-## Part 4: Service Layer (service.rs)
-
-### Required Changes
-
-#### 4.1 Auto-create categories when logging time
-
-```rust
-impl Service {
-    pub async fn start_session(&mut self, category: &str, notes: Option<String>) -> Result<()> {
-        // Parse category string (e.g., "Code:trello")
-        let parsed = Category::parse(category);
-        
-        // Ensure main category exists
-        let main_category = self.storage
-            .find_or_create_category(&parsed.main, None)
-            .await?;
-        
-        // If subcategory exists, ensure it exists too
-        let final_category = if let Some(sub) = &parsed.sub {
-            let sub_category = self.storage
-                .find_or_create_category(sub, main_category.id)
-                .await?;
-            sub_category
-        } else {
-            main_category
-        };
-
-        // Store the category relationship
-        let category_id = final_category.id.ok_or(Error::CategoryNotFound)?;
-        
-        // Start session with category
-        self.storage.start_session(category, notes, Some(category_id), "cli").await
-    }
-}
-```
-
-#### 4.2 Category tree retrieval
-
-```rust
-pub async fn get_categories(&self) -> Result<Vec<CategoryTreeNode>> {
-    self.storage.get_category_tree().await
-}
-```
-
----
-
-## Part 5: CLI Commands (cli.rs)
-
-### New Commands
-
-#### 5.1 Category List Command
-
-```rust
-#[derive(Parser, Debug)]
-pub enum Command {
-    // ... existing commands
-    
-    /// List all categories with hierarchy
-    Category {
-        #[command(subcommand)]
-        action: CategoryAction,
-    },
-}
-
-#[derive(Parser, Debug)]
-pub enum CategoryAction {
-    /// List all categories
-    List,
-    /// Show category usage stats
-    Stats,
-    /// Delete a category (must have no sessions)
-    Delete { id: i64 },
-}
-
-impl Command::Category::List {
-    pub async fn run(&self, service: &mut Service) -> Result<()> {
-        let tree = service.get_categories().await?;
-        
-        println!("\n📁 Categories\n");
-        for node in tree {
-            let sub_count = node.subcategories.len();
-            if sub_count == 0 {
-                println!("  {}", node.main.name);
-            } else {
-                println!("  {} ({} subcategories)", node.main.name, sub_count);
-                for sub in node.subcategories {
-                    println!("    └── {}", sub.name);
-                }
-            }
-        }
-        Ok(())
-    }
-}
-```
-
-#### 5.2 Update Start/Add commands to show category info
-
-```rust
-fn print_session_start(category: &Category) {
-    if let Some(sub) = &category.sub {
-        println!("⏱ Started {} → {}", category.main, sub);
-    } else {
-        println!("⏱ Started {}", category.main);
-    }
-}
-```
-
----
-
-## Part 6: Reports Enhancement (service.rs)
-
-### Changes to Report Generation
-
-#### 6.1 Detailed Report (shows subcategories separately)
-
-```rust
-pub async fn generate_report(
-    &self, 
-    from: DateTime<Utc>, 
-    to: DateTime<Utc>,
-    detailed: bool
-) -> Report {
-    let sessions = self.storage.get_sessions_in_range(from, to).await?;
-    
-    let mut main_totals: HashMap<String, Duration> = HashMap::new();
-    let mut detail_totals: HashMap<String, Duration> = HashMap::new();
-    
-    for session in sessions {
-        let cat = session.category_parsed();
-        let duration = session.duration();
-        
-        // Aggregate by main
-        *main_totals.entry(cat.main.clone()).or_insert(Duration::zero()) += duration;
-        
-        if detailed {
-            // Track subcategories separately
-            let key = cat.full(); // "Code:trello"
-            *detail_totals.entry(key).or_insert(Duration::zero()) += duration;
-        }
-    }
-    
-    Report { main_totals, detail_totals }
-}
-```
-
-#### 6.2 Response Structure for API
-
-```rust
-#[derive(Serialize)]
-pub struct Report {
-    pub main_categories: Vec<CategorySummary>,
-    pub subcategories: Option<Vec<SubcategoryDetail>>,
-    pub total_duration: Duration,
-}
-
-#[derive(Serialize)]
-pub struct CategorySummary {
-    pub name: String,
-    pub duration: Duration,
-    pub percentage: f64,
-    pub subcategories: Vec<SubcategoryDetail>, // For expansion in dashboard
-}
-```
-
----
-
-## Part 7: Next.js Dashboard Integration
-
-### API Routes (in trello-like)
-
-#### 7.1 Time Analytics Endpoint
-
-```typescript
-// app/api/analytics/time/route.ts
-export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const workspaceId = searchParams.get('workspaceId');
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
-  const groupBy = searchParams.get('groupBy') || 'main'; // 'main' | 'sub' | 'both'
-
-  // Query sessions with category join
-  const sessions = await db.query.sessions.findMany({
-    with: {
-      category: true, // via category_id foreign key
-    },
-    where: and(
-      gte(sessions.startTime, from),
-      lte(sessions.startTime, to),
-      // filter by workspace if needed
-    ),
-  });
-
-  // Process into hierarchy
-  const result = processSessionsIntoHierarchy(sessions, groupBy);
-  return NextResponse.json(result);
-}
-```
-
----
-
-## File Changes Summary
-
-### time-logger (Rust CLI)
-
-| File | Changes |
-|------|---------|
-| `src/models.rs` | Add `id` and `parent_id` to Category struct |
-| `src/storage.rs` | Add category CRUD methods, update session to include category_id |
-| `src/service.rs` | Auto-create categories on session start, add get_categories method |
-| `src/cli.rs` | Add `category` command with List/Stats/Delete actions |
-
-### trello-like (Next.js)
-
-| File | Changes |
-|------|---------|
-| `app/api/analytics/time/route.ts` | NEW - Time analytics endpoint |
-| `app/components/TimeDashboard.tsx` | NEW - Dashboard with category breakdown |
-
-### Database
-
-| Change | SQL |
-|--------|-----|
-| Create categories table | See 1.1 |
-| Add category_id to sessions | See 1.2 |
-
----
-
-## Testing Checklist
-
-- [ ] Create category table in PostgreSQL
-- [ ] `tl start Code:trello` creates both "Code" and "trello" categories
-- [ ] `tl category list` shows hierarchy
-- [ ] Reports show subcategories in detailed mode
-- [ ] Dashboard shows expandable category breakdown
-- [ ] Category deletion only works when no sessions attached
-- [ ] Existing sessions continue to work (backward compatible)
-
----
-
-## Migration Notes
-
-```sql
--- Run this to add category_id column to existing sessions
-ALTER TABLE sessions ADD COLUMN category_id INTEGER REFERENCES categories(id);
-
--- Backfill category_id from existing category strings
-UPDATE sessions s
-SET category_id = (
-    SELECT c.id FROM categories c 
-    WHERE c.name = SPLIT_PART(s.category, ':', 2)
-    OR (NOT s.category LIKE '%:%' AND c.name = s.category)
-    LIMIT 1
-);
-```
+Project Improvement Plan
+
+## Recommended Direction
+
+Keep `time-logger` as the authority for timer and session semantics.
+Keep `trello-like` as the UI and workflow layer for boards, tasks, calendar, and timer controls.
+Stop duplicating the time domain in two incompatible ways. The current mixed approach is the biggest st
+         ructural problem in the repo.
+Commit to real user ownership in the web app. The code already has registration, sessions, and per-user
+          workspaces, so the app should not keep acting like timer data is global.
+
+## Current Baseline
+
+`time-logger`: `cargo test` passes, but only one CLI smoke test exists.
+`trello-like`: `npm run build` passes.
+`trello-like`: `npm run lint` fails with 31 errors and 37 warnings.
+`trello-like`: direct `tsc` usage is misconfigured because the `tsc` package shadows the TypeScript com
+         piler.
+
+## What “Good Overall” Should Mean For This Project
+
+A fresh setup works without undocumented manual fixes.
+The Rust CLI and Next app share one clear time-tracking contract.
+No user can read or mutate another user’s data.
+Docs match the code.
+The repo has reliable quality gates: lint, typecheck, tests, build.
+The product feels ambitious because it is solid, not because it has many half-finished surfaces.
+
+## Phase 0: Lock The Product And Architecture
+
+### Goals
+
+Remove ambiguity before more code is added.
+Decide which parts are core and which parts are optional.
+
+### Tasks
+
+Write and accept one short ADR that answers:
+- Is the app truly single-user, or is it user-scoped multi-user?
+answer: single-user
+- Is `time-logger` the time authority, or is the web app now the authority?
+answer: `time-logger`
+- Does the web app write directly to the time store, or does it call a dedicated timer service/API?
+answer: calls directly to the time store (check)
+Freeze one canonical `sessions` model and one canonical `categories` model.
+Audit every major doc and mark it as `current`, `outdated`, or `aspirational`.
+Remove or rewrite docs that now describe the wrong storage model or backup model.
+
+### Acceptance Criteria
+
+One architecture document describes the current truth.
+One schema contract exists for time tracking.
+No README claims SQLite/local-first if the implementation is PostgreSQL-first.
+
+## Phase 1: Fix Correctness And Security Blockers
+
+### Workstream A: Align The Time Domain
+
+Fix `time-logger/src/storage.rs` schema initialization so it creates the tables and columns the Rust co
+         de actually uses.
+Add migrations for `sessions`, `categories`, and any ownership columns instead of relying on ad hoc sch
+         ema creation.
+Remove the schema drift between:
+- `time-logger/src/storage.rs`
+- `trello-like/db/schema.ts`
+Decide one of these implementations and delete the other:
+- Recommended: Next timer routes call a small server-side time service that enforces `tl` rules.
+- Alternative: collapse the Rust time domain into the Next app and retire the Rust authority model.
+Make timer start/stop semantics identical in both interfaces.
+
+### Workstream B: Enforce Ownership Everywhere
+
+Add `userId` or an equivalent ownership key to `sessions`.
+Require authentication in all timer routes.
+Filter timer reads and writes by the authenticated owner.
+Filter dashboard queries by owner.
+Add ownership validation to all task/list mutations, not just workspace and board mutations.
+Review every server action for “authenticated” vs “authorized”; today many are only authenticated.
+
+### Workstream C: Fix Dangerous UX Semantics
+
+Stop silently ending an existing timer on `start`; require an explicit replace action server-side.
+Return structured timer conflict errors to the client.
+Add visible failure states for timer start/stop and drag-and-drop persistence failures.
+Render the global active timer bar consistently or remove the dead component until it is wired in.
+
+### Acceptance Criteria
+
+A fresh database can be initialized and used successfully by `tl`.
+Timer routes cannot be called anonymously.
+One user cannot see or mutate another user’s timer data.
+Starting a second timer never silently changes data.
+
+## Phase 2: Clean Up Tooling, Docs, And Repo Hygiene
+
+### Goals
+
+Make the repository trustworthy for development.
+Remove “works on my machine” setup problems.
+
+### Tasks
+
+Remove the `tsc` package from `trello-like/package.json`; rely on `typescript`.
+Add explicit scripts:
+- `typecheck`
+- `test`
+- `check`
+Convert the current `tests/*.ts` scripts into either:
+- real test files run by a test runner, or
+- clearly named maintenance scripts in a different directory.
+Add a root `README.md` with:
+- project overview
+- architecture summary
+- setup steps for both apps
+- environment variables
+- validation commands
+Align `README.md`, `.env.example`, Docker config, and architecture docs with the real storage and auth
+         story.
+Remove stale comments and dead imports across the web app.
+Add environment validation on startup so missing AI config fails gracefully and clearly.
+
+### Acceptance Criteria
+
+A new contributor can clone the repo and understand how to run both apps.
+`npm run lint`, `npm run typecheck`, `npm run build`, and `cargo test` all work from a clean checkout.
+No file named `test` is actually a one-off script.
+
+## Phase 3: Build A Real Test Strategy
+
+### Rust App
+
+Add storage tests against ephemeral PostgreSQL.
+Add tests for:
+- schema initialization
+- active timer uniqueness
+- overlap detection
+- category creation
+- manual session creation
+- stop/resume flows
+Add regression tests for any migration logic.
+
+### Next App
+
+Add unit/integration tests for:
+- auth actions
+- task/list/workspace authorization
+- timer routes
+- dashboard aggregation
+- date utilities
+Add end-to-end tests for:
+- register/login
+- create workspace and board
+- create and move tasks
+- start and stop timer
+- auto-stop when moving a timed task to done
+- calendar highlight creation and navigation
+
+### Cross-App Contract
+
+Add contract tests that assert the web timer flow and the Rust timer flow operate on the same schema an
+         d semantics.
+Add at least one smoke test that creates a session from one interface and reads it from the other.
+
+### Acceptance Criteria
+
+The Rust app has meaningful behavior tests, not just CLI parsing.
+The Next app has tests that cover authorization and timer correctness.
+Cross-app integration is proven automatically, not assumed.
+
+## Phase 4: Finish Or De-Scope Product Surfaces
+
+### Goals
+
+Convert ambitious features into coherent features.
+Stop shipping partially integrated experiences.
+
+### Tasks
+
+Decide whether infinite nesting is truly a v1 feature.
+- If yes, implement recursive drag/drop, recursive deletes, and better hierarchy navigation.
+- If no, cap nesting depth for now and simplify the UI.
+Make AI functionality optional instead of a hard startup dependency.
+Add clearer AI failure states and rate-limit handling.
+Make timer UX consistent between task card, modal, dashboard, and global bar.
+Add task history or session links so time tracking feels attached to work, not bolted on.
+Improve empty states and error states across workspace, board, calendar, and dashboard views.
+Fix small but trust-eroding polish issues:
+- incorrect page copy
+- generic metadata
+- dead components
+- inconsistent labels like `Todo` vs `To Do`
+
+### Acceptance Criteria
+
+Every major feature in the UI is either complete enough to trust or intentionally de-scoped.
+Optional services like AI do not destabilize the core product.
+The timer system feels native to the task workflow.
+
+## Phase 5: Production Readiness
+
+### Goals
+
+Make deployment and maintenance boring.
+
+### Tasks
+
+Introduce migration/versioning discipline for both apps.
+Add CI that runs:
+- Rust tests
+- web lint
+- web typecheck
+- web build
+- selected integration tests
+Add structured logging and request-level error reporting.
+Add health checks for database connectivity and timer service availability.
+Define backup and restore procedures for PostgreSQL.
+Document deployment for local, VPS, and containerized environments.
+Add a release checklist for schema changes and cutovers.
+
+### Acceptance Criteria
+
+Production deploys are repeatable.
+Schema changes are reversible.
+Failures are observable.
+Backup and restore are documented and tested.
+
+## Suggested Execution Order
+
+1. Phase 0 architecture lock.
+2. Phase 1 correctness and ownership fixes.
+3. Phase 2 tooling and documentation cleanup.
+4. Phase 3 tests and integration coverage.
+5. Phase 4 product completion and UX consistency.
+6. Phase 5 release and operations work.
+
+## Immediate Top 10 Tasks
+
+1. Unify the `sessions` schema between Rust and Next.
+2. Fix `time-logger` schema bootstrap so fresh Postgres setup actually works.
+3. Add authentication and ownership filtering to all timer routes.
+4. Add ownership checks to task and list server actions.
+5. Scope dashboard data to the authenticated user.
+6. Replace silent timer replacement with explicit conflict handling.
+7. Remove the `tsc` package and add a real `typecheck` script.
+8. Turn pseudo-tests into real automated tests.
+9. Update outdated READMEs and environment docs.
+10. Add CI and require it before future feature work.
+
+## What Not To Do Yet
+
+Do not add more AI features before the current AI integration is resilient and optional.
+Do not add more views or command palette work before the timer and authorization model is correct.
+Do not keep both direct web-side timer writes and a separate Rust authority model long term.
+Do not market the app as production-ready until ownership, schema consistency, and tests are in place.
+
+## Final Exit Criteria
+
+The repo builds and passes checks from a clean machine.
+`tl` and the web app operate on one agreed time model.
+Authorization is enforced everywhere data can change.
+Documentation matches implementation.
+The project feels like a strong product foundation instead of a strong prototype.
+

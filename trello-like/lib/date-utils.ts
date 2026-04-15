@@ -21,11 +21,11 @@ export function toISOLocalDate(date: Date): string {
  * Handles Date objects, ISO strings, and snake_case database objects.
  * Prevents timezone shifting by parsing YYYY-MM-DD components directly from strings.
  */
-export function parseISOLocal(dateValue: any): Date {
-  if (!dateValue) return new Date();
-  
-  // Handle Drizzle snake_case fallback if property mapping failed
-  const val = dateValue.startDate || dateValue.start_date || dateValue;
+export function parseISOLocal(dateValue: Date | string | { startDate?: string; start_date?: string } | null): Date {
+if (!dateValue) return new Date();
+
+// Handle Drizzle snake_case fallback if property mapping failed
+const val = typeof dateValue === 'object' && 'startDate' in dateValue ? (dateValue.startDate || dateValue.start_date) : dateValue;
   
   if (val instanceof Date) {
     return new Date(val.getFullYear(), val.getMonth(), val.getDate());
@@ -60,20 +60,20 @@ export function isDateInRange(date: Date, start: Date, end: Date): boolean {
  * Safely converts a value to an ISO string.
  * Used for API responses.
  */
-export function safeToISOString(value: any): string {
-  if (!value) return new Date().toISOString();
-  
-  let date: Date;
-  if (value instanceof Date) {
-    date = value;
-  } else if (typeof value === 'string' || typeof value === 'number') {
-    date = new Date(value);
-  } else {
-    // Check for common DB property names if passed the whole object by mistake
-    const possibleDate = value.startDate || value.start_date || value.endDate || value.end_date;
-    if (possibleDate) return safeToISOString(possibleDate);
-    date = new Date(String(value));
-  }
+export function safeToISOString(value: Date | string | number | { startDate?: string; start_date?: string; endDate?: string; end_date?: string } | null): string {
+if (!value) return new Date().toISOString();
+
+let date: Date;
+if (value instanceof Date) {
+date = value;
+} else if (typeof value === 'string' || typeof value === 'number') {
+date = new Date(value);
+} else {
+// Check for common DB property names if passed the whole object by mistake
+const possibleDate = value.startDate || value.start_date || value.endDate || value.end_date;
+if (possibleDate) return safeToISOString(possibleDate);
+date = new Date(String(value));
+}
   
   if (isNaN(date.getTime())) {
     console.warn("safeToISOString: Invalid date value received:", value);

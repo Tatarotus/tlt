@@ -49,12 +49,12 @@ export async function updateWorkspace(
       where: and(eq(workspaces.id, workspaceId), eq(workspaces.userId, session.userId))
     });
 
-    if (!workspace) return { success: false, error: "Unauthorized or not found" };
+if (!workspace) return { success: false, error: "Unauthorized or not found" };
 
-    const updateData: any = { ...data };
-    if (data.slug) {
-      updateData.slug = slugify(data.slug);
-    }
+const updateData: { name?: string; description?: string; slug?: string } = { ...data };
+if (data.slug) {
+updateData.slug = slugify(data.slug);
+}
 
     const updated = await db.update(workspaces)
       .set(updateData)

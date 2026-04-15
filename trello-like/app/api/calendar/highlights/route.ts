@@ -34,16 +34,16 @@ export async function GET(request: NextRequest) {
       where: eq(calendarHighlights.workspaceId, workspace.id),
     });
 
-    const formattedHighlights = highlights.map(h => {
-      const finalStartDate = h.startDate || (h as any).start_date;
-      const finalEndDate = h.endDate || (h as any).end_date;
-      
-      return {
-        ...h,
-        startDate: safeToISOString(finalStartDate),
-        endDate: safeToISOString(finalEndDate),
-      };
-    });
+const formattedHighlights = highlights.map(h => {
+const finalStartDate = h.startDate;
+const finalEndDate = h.endDate;
+
+return {
+...h,
+startDate: safeToISOString(finalStartDate),
+endDate: safeToISOString(finalEndDate),
+};
+});
 
     return NextResponse.json({ success: true, highlights: formattedHighlights });
   } catch (error) {
@@ -100,17 +100,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Start date must be before end date' }, { status: 400 });
     }
 
-    const [newHighlight] = await db.insert(calendarHighlights).values({
-      workspaceId: workspace.id,
-      title,
-      color,
-      startDate: startDate,
-      endDate: endDate,
-    }).returning();
+const [newHighlight] = await db.insert(calendarHighlights).values({
+id: crypto.randomUUID(),
+workspaceId: workspace.id,
+title,
+color,
+startDate: startDate,
+endDate: endDate,
+}).returning();
 
-    // Use property names if they exist, otherwise fallback to column names
-    const finalStartDate = newHighlight.startDate || (newHighlight as any).start_date;
-    const finalEndDate = newHighlight.endDate || (newHighlight as any).end_date;
+// Use property names if they exist
+const finalStartDate = newHighlight.startDate;
+const finalEndDate = newHighlight.endDate;
 
     return NextResponse.json({ 
       success: true, 

@@ -26,15 +26,15 @@ export async function createTask(title: string, listId: string, order: number, p
   if (!session) return { success: false, error: "Unauthorized" };
 
   try {
-    const newTask = await db.insert(tasks).values({
-      id: crypto.randomUUID(),
-      title,
-      listId,
-      order,
-      parentId,
-    }).returning();
-    
-    return { success: true, task: newTask[0] };
+const newTask = await db.insert(tasks).values({
+id: crypto.randomUUID(),
+title,
+listId,
+order,
+parentId,
+}).returning();
+
+return { success: true, task: (newTask as any)[0] };
   } catch (error) {
     return { success: false, error: "Database insert failed" };
   }

@@ -40,9 +40,9 @@ function MetricCard({ title, value, icon, colorClass }: MetricCardProps) {
 }
 
 export function TimeDashboard() {
-  const [range, setRange] = useState<DashboardRange>('week');
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+const [range, setRange] = useState<DashboardRange>('week');
+const [data, setData] = useState<any>(null);
+const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -140,9 +140,9 @@ export function TimeDashboard() {
                         paddingAngle={5}
                         dataKey="value"
                     >
-                        {donutData?.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+{donutData?.map((entry: { name: string; value: number }, index: number) => (
+<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+))}
                     </Pie>
                     <RechartsTooltip />
                     </PieChart>
@@ -155,17 +155,17 @@ export function TimeDashboard() {
              
              {/* Custom Legend */}
              <div className="flex flex-col gap-2 overflow-y-auto max-h-full pr-2 scrollbar-thin scrollbar-thumb-gray-200">
-                {donutData?.map((entry: any, index: number) => (
-                    <div key={entry.name} className="flex items-center justify-between gap-6 min-w-[120px]">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                            <span className="text-xs font-medium text-gray-600 truncate max-w-[80px]">{entry.name}</span>
-                        </div>
-                        <span className="text-xs font-bold text-gray-400">
-                          {Math.round((entry.value / donutData.reduce((acc: number, cur: any) => acc + cur.value, 0)) * 100)}%
-                        </span>
-                    </div>
-                ))}
+{donutData?.map((entry: { name: string; value: number }, index: number) => (
+<div key={entry.name} className="flex items-center justify-between gap-6 min-w-[120px]">
+<div className="flex items-center gap-2">
+<div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+<span className="text-xs font-medium text-gray-600 truncate max-w-[80px]">{entry.name}</span>
+</div>
+<span className="text-xs font-bold text-gray-400">
+{Math.round((entry.value / donutData.reduce((acc: number, cur: { value: number }) => acc + cur.value, 0)) * 100)}%
+</span>
+</div>
+))}
              </div>
           </div>
         </div>
@@ -217,12 +217,12 @@ export function TimeDashboard() {
                    <th className="pb-2">Notes</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-gray-50">
-                 {recentLogs?.map((log: any) => (
-                   <tr key={log.id} className="text-xs text-gray-600 hover:bg-gray-50/50 transition-colors">
-                     <td className="py-2 font-medium text-gray-800">{log.category}</td>
-                     <td className="py-2">{new Date(log.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                     <td className="py-2">{Math.floor(log.duration / 3600)}h {Math.floor((log.duration % 3600) / 60)}m</td>
+<tbody className="divide-y divide-gray-50">
+{recentLogs?.map((log: { id: number; category: string; startTime: string; duration: number; notes?: string | null }) => (
+<tr key={log.id} className="text-xs text-gray-600 hover:bg-gray-50/50 transition-colors">
+<td className="py-2 font-medium text-gray-800">{log.category}</td>
+<td className="py-2">{new Date(log.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+<td className="py-2">{Math.floor(log.duration / 3600)}h {Math.floor((log.duration % 3600) / 60)}m</td>
                      <td className="py-2 text-gray-400 truncate max-w-[120px]">{log.notes || '-'}</td>
                    </tr>
                  ))}

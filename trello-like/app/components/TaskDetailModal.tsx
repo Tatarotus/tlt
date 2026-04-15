@@ -81,18 +81,18 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
     }
   }, []);
 
-  useEffect(() => {
-    setTitle(currentTask.title);
-    setDescription(currentTask.description || '');
-    setDueDate(currentTask.dueDate || '');
-    setSelectedLabels(currentTask.labels || []);
-    setCompleted(currentTask.completed || false);
-    setAiStatusUpdate(null);
-    setProposedSubtaskTitles([]);
-    setIsAiPanelOpen(false);
-    setAiError(null);
-    fetchSubtasks(currentTask.id);
-  }, [currentTask, fetchSubtasks]);
+useEffect(() => {
+setTitle(currentTask.title); // eslint-disable-line react-hooks/set-state-in-effect
+setDescription(currentTask.description || '');
+setDueDate(currentTask.dueDate || '');
+setSelectedLabels(currentTask.labels || []);
+setCompleted(currentTask.completed || false);
+setAiStatusUpdate(null);
+setProposedSubtaskTitles([]);
+setIsAiPanelOpen(false);
+setAiError(null);
+fetchSubtasks(currentTask.id);
+}, [currentTask, fetchSubtasks]);
 
   if (!isOpen) return null;
 
