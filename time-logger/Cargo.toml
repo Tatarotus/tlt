@@ -20,3 +20,10 @@ tokio = { version = "1", features = ["full"] }
 [[bin]]
 name = "tl"
 path = "src/main.rs"
+
+[profile.release]
+opt-level = 3          # max optimization
+lto = true             # link-time optimization
+codegen-units = 1      # better optimization, slower compile
+panic = "abort"        # smaller binary, no unwinding
+strip = true           # remove debug symbols

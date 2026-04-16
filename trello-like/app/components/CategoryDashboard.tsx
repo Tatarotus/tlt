@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Clock, ChevronRight, ChevronDown, Calendar, Zap, ListOrdered, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Clock, ChevronRight, ChevronDown, Calendar, Zap, ListOrdered, PieChart as PieChartIcon, BarChart3, Activity, TrendingUp } from 'lucide-react';
 import { getCategoryData, CategoryRange, CategoryData as CategoryDataType } from '@/app/actions/category-actions';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid 
+} from 'recharts';
 
 const COLORS = [
   '#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6',
@@ -135,6 +138,55 @@ export function CategoryDashboard() {
     loadData();
   }, [range]);
 
+  const { categories: categoryList, totalDuration, totalSessions } = data || {};
+
+  const pieData = useMemo(() => {
+    return categoryList ? categoryList.map((cat: any, i: number) => ({
+      name: cat.name,
+      value: Math.round(cat.totalDuration / (1000 * 60 * 60) * 10) / 10,
+      color: COLORS[i % COLORS.length],
+    })) : [];
+  }, [categoryList]);
+
+  const activityData = useMemo(() => {
+    if (!categoryList || categoryList.length === 0) return [];
+    
+    const dayMap = new Map<string, number>();
+    const dates = [];
+    
+    // Determine days to show based on range
+    let daysToLookBack = 7;
+    if (range === 'today') daysToLookBack = 1;
+    else if (range === 'month') daysToLookBack = 30;
+    else if (range === 'all') daysToLookBack = 30;
+
+    for (let i = daysToLookBack - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      dayMap.set(dateStr, 0);
+      dates.push(dateStr);
+    }
+
+    categoryList.forEach((cat: any) => {
+      cat.sessions?.forEach((s: any) => {
+        const dateStr = new Date(s.startTime).toISOString().split('T')[0];
+        if (dayMap.has(dateStr)) {
+          dayMap.set(dateStr, dayMap.get(dateStr)! + s.duration);
+        }
+      });
+    });
+
+    return dates.map(date => ({
+      name: new Date(date).toLocaleDateString([], { 
+        weekday: range === 'week' ? 'short' : undefined,
+        day: 'numeric',
+        month: range === 'month' ? 'short' : undefined
+      }),
+      hours: Math.round(dayMap.get(date)! / (1000 * 60 * 60) * 10) / 10,
+    }));
+  }, [categoryList, range]);
+
   if (loading && !data) {
     return (
       <div className="w-full h-[600px] flex items-center justify-center bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
@@ -145,14 +197,6 @@ export function CategoryDashboard() {
       </div>
     );
   }
-
-  const { categories: categoryList, totalDuration, totalSessions } = data || {};
-
-  const pieData = categoryList ? categoryList.map((cat: any, i: number) => ({
-    name: cat.name,
-    value: Math.round(cat.totalDuration / (1000 * 60 * 60) * 10) / 10,
-    color: COLORS[i % COLORS.length],
-  })) : [];
 
   return (
     <div className="space-y-6 mb-12">
@@ -204,77 +248,16 @@ export function CategoryDashboard() {
         />
       </div>
 
-      {/* Charts and Categories Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pie Chart */}
-        <div className="lg:col-span-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <PieChartIcon size={18} />
-            Distribution
-          </h3>
-          {pieData.length > 0 ? (
-<div className="h-[320px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={70}
-                        outerRadius={110}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip
-                        formatter={(value: any) => `${value}h`}
-                        contentStyle={{
-                          borderRadius: '8px',
-                          border: 'none',
-                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-3xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: any) => acc + cur.value, 0).toFixed(1)}h</span>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</span>
-                  </div>
-                </div>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-gray-400">
-              <p className="text-sm">No data</p>
-            </div>
-          )}
-          
-          {/* Legend */}
-          <div className="mt-4 space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin">
-            {pieData.map((entry: any, index: number) => (
-              <div key={entry.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  <span className="text-gray-700 truncate max-w-[120px]">{entry.name}</span>
-                </div>
-                <span className="font-semibold text-gray-900">{entry.value}h</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Categories List */}
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <BarChart3 size={18} />
+      {/* Main Content Grid: 35% Categories | 65% Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left: Categories List (4/12 = 33.3%, close to 35%) */}
+        <div className="lg:col-span-4 bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full flex flex-col">
+          <h3 className="text-base font-semibold text-gray-800 mb-6 flex items-center gap-2">
+            <ListOrdered size={18} className="text-gray-500" />
             Categories ({categoryList?.length || 0})
           </h3>
           {categoryList && categoryList.length > 0 ? (
-            <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-2">
+            <div className="space-y-3 flex-1 overflow-y-auto scrollbar-thin pr-2 max-h-[600px]">
               {categoryList.map((category: CategoryWithChildren, index: number) => (
                 <CategoryItem
                   key={category.name}
@@ -284,12 +267,123 @@ export function CategoryDashboard() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-20 text-gray-500">
               <Clock size={48} className="mx-auto mb-4 opacity-20" />
               <p className="text-lg font-medium">No time entries yet</p>
-              <p className="text-sm">Start tracking time to see your categories here</p>
             </div>
           )}
+        </div>
+
+        {/* Right: Insights Card (8/12 = 66.6%, close to 65%) */}
+        <div className="lg:col-span-8 bg-white border border-gray-200 rounded-xl p-6 shadow-sm h-full">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+              <TrendingUp size={18} className="text-blue-500" />
+              Productivity Insights
+            </h3>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                Daily Activity
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                Distribution
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+            {/* Activity Chart */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Weekly Activity</h4>
+                <span className="text-xs font-medium text-gray-500">Hours per day</span>
+              </div>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activityData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      tickFormatter={(val) => `${val}h`}
+                    />
+                    <RechartsTooltip 
+                      cursor={{ fill: '#f8fafc' }}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: any) => [`${value} hours`, 'Time']}
+                    />
+                    <Bar 
+                      dataKey="hours" 
+                      fill="#3b82f6" 
+                      radius={[4, 4, 0, 0]} 
+                      barSize={range === 'month' ? 12 : 32}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Distribution Pie Chart */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Time Distribution</h4>
+                <span className="text-xs font-medium text-gray-500">By category</span>
+              </div>
+              <div className="h-[240px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={95}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      formatter={(value: any) => `${value}h`}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-3xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: any) => acc + cur.value, 0).toFixed(1)}h</span>
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</span>
+                </div>
+              </div>
+              
+              {/* Compact Legend */}
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 max-h-[100px] overflow-y-auto scrollbar-thin pr-1">
+                {pieData.map((entry: any, index: number) => (
+                  <div key={entry.name} className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div 
+                        className="w-2 h-2 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: entry.color }}
+                      />
+                      <span className="text-gray-600 truncate">{entry.name}</span>
+                    </div>
+                    <span className="font-semibold text-gray-900 ml-1">{entry.value}h</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
