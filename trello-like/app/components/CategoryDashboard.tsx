@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Clock, ChevronRight, ChevronDown, Calendar, Zap, ListOrdered } from 'lucide-react';
+import { Clock, ChevronRight, ChevronDown, Calendar, Zap, ListOrdered, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { getCategoryData, CategoryRange, CategoryData as CategoryDataType } from '@/app/actions/category-actions';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 
 const COLORS = [
   '#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6',
-  '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'
+  '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6',
+  '#8b5cf6', '#f43f5e', '#0ea5e9', '#f97316'
 ];
 
 interface MetricCardProps {
@@ -42,7 +44,21 @@ function formatTime(date: Date): string {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function CategoryItem({ category, index }: { category: CategoryDataType & { children?: CategoryDataType[] }, index: number }) {
+function formatDurationShort(ms: number): string {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+interface CategoryWithChildren extends CategoryDataType {
+  children?: CategoryWithChildren[];
+  sessions?: any[];
+}
+
+function CategoryItem({ category, index }: { category: CategoryWithChildren, index: number }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const color = COLORS[index % COLORS.length];
 
@@ -132,6 +148,12 @@ export function CategoryDashboard() {
 
   const { categories: categoryList, totalDuration, totalSessions } = data || {};
 
+  const pieData = categoryList ? categoryList.map((cat: any, i: number) => ({
+    name: cat.name,
+    value: Math.round(cat.totalDuration / (1000 * 60 * 60) * 10) / 10,
+    color: COLORS[i % COLORS.length],
+  })) : [];
+
   return (
     <div className="space-y-6 mb-12">
       <div className="flex items-center justify-between">
@@ -182,28 +204,93 @@ export function CategoryDashboard() {
         />
       </div>
 
-      {/* Categories List */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        <h3 className="text-base font-semibold text-gray-800 mb-4">
-          Categories ({categoryList?.length || 0})
-        </h3>
-        {categoryList && categoryList.length > 0 ? (
-          <div>
-            {categoryList.map((category: CategoryDataType & { children?: CategoryDataType[] }, index: number) => (
-              <CategoryItem
-                key={category.name}
-                category={category}
-                index={index}
-              />
+      {/* Charts and Categories Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pie Chart */}
+        <div className="lg:col-span-1 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <PieChartIcon size={18} />
+            Distribution
+          </h3>
+          {pieData.length > 0 ? (
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    formatter={(value: any) => `${value}h`}
+                    contentStyle={{ 
+                      borderRadius: '8px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' 
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: any) => acc + cur.value, 0).toFixed(1)}h</span>
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Total</span>
+              </div>
+            </div>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-400">
+              <p className="text-sm">No data</p>
+            </div>
+          )}
+          
+          {/* Legend */}
+          <div className="mt-4 space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin">
+            {pieData.map((entry: any, index: number) => (
+              <div key={entry.name} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-gray-700 truncate max-w-[120px]">{entry.name}</span>
+                </div>
+                <span className="font-semibold text-gray-900">{entry.value}h</span>
+              </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-12 text-gray-500">
-            <Clock size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="text-lg font-medium">No time entries yet</p>
-            <p className="text-sm">Start tracking time to see your categories here</p>
-          </div>
-        )}
+        </div>
+
+        {/* Categories List */}
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <BarChart3 size={18} />
+            Categories ({categoryList?.length || 0})
+          </h3>
+          {categoryList && categoryList.length > 0 ? (
+            <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-2">
+              {categoryList.map((category: CategoryWithChildren, index: number) => (
+                <CategoryItem
+                  key={category.name}
+                  category={category}
+                  index={index}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <Clock size={48} className="mx-auto mb-4 opacity-20" />
+              <p className="text-lg font-medium">No time entries yet</p>
+              <p className="text-sm">Start tracking time to see your categories here</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
