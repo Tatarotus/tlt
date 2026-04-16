@@ -213,37 +213,37 @@ export function CategoryDashboard() {
             Distribution
           </h3>
           {pieData.length > 0 ? (
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip 
-                    formatter={(value: any) => `${value}h`}
-                    contentStyle={{ 
-                      borderRadius: '8px', 
-                      border: 'none', 
-                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' 
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: any) => acc + cur.value, 0).toFixed(1)}h</span>
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Total</span>
-              </div>
-            </div>
+<div className="h-[320px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={70}
+                        outerRadius={110}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(value: any) => `${value}h`}
+                        contentStyle={{
+                          borderRadius: '8px',
+                          border: 'none',
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-3xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: any) => acc + cur.value, 0).toFixed(1)}h</span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</span>
+                  </div>
+                </div>
           ) : (
             <div className="h-[300px] flex items-center justify-center text-gray-400">
               <p className="text-sm">No data</p>
