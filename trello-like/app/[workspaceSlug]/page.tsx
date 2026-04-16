@@ -39,6 +39,7 @@ where: eq(calendarHighlights.workspaceId, workspace.id),
 
 return (
 <WorkspaceCalendar
+userId={session.userId}
 workspace={workspace}
 initialHighlights={highlights.map(h => {
 const finalStartDate = h.startDate;

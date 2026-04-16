@@ -23,11 +23,12 @@ interface WorkspaceData {
 }
 
 interface WorkspaceCalendarProps {
+  userId: string;
   workspace: WorkspaceData;
   initialHighlights: Highlight[];
 }
 
-export function WorkspaceCalendar({ workspace, initialHighlights }: WorkspaceCalendarProps) {
+export function WorkspaceCalendar({ workspace, initialHighlights, userId }: WorkspaceCalendarProps) {
   const [highlights, setHighlights] = useState<Highlight[]>(initialHighlights);
   const router = useRouter();
 
@@ -65,6 +66,7 @@ export function WorkspaceCalendar({ workspace, initialHighlights }: WorkspaceCal
   return (
     <main className="min-h-screen bg-gray-50 pb-24 font-sans">
       <WorkspaceHeader
+        userId={userId}
         id={workspace.id}
         name={workspace.name}
         slug={workspace.slug}

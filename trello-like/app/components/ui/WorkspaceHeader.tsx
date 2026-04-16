@@ -8,6 +8,7 @@ import { updateWorkspace, deleteWorkspace } from "@/app/actions/workspace-action
 import { useRouter } from "next/navigation";
 
 interface WorkspaceHeaderProps {
+  userId?: string;
   id: string;
   name: string;
   slug: string | null;
@@ -17,7 +18,7 @@ interface WorkspaceHeaderProps {
   children?: React.ReactNode;
 }
 
-export function WorkspaceHeader({ id, name, slug, description, backHref, backLabel = "Back", children }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ id, name, slug, description, backHref, backLabel = "Back", userId, children }: WorkspaceHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newName, setNewName] = useState(name);
   const [newDescription, setNewDescription] = useState(description || "");
@@ -110,7 +111,14 @@ export function WorkspaceHeader({ id, name, slug, description, backHref, backLab
 
             <div className="p-6 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Workspace Name</label>
+                <div className="space-y-1 bg-blue-50/50 p-3 rounded-lg border border-blue-100 mb-4">
+                <label className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-1">Your CLI User ID</label>
+                <code className="text-[10px] font-mono text-blue-800 break-all bg-white/80 p-1.5 rounded border border-blue-200 block">
+                  {userId || "Not logged in"}
+                </code>
+                <p className="text-[9px] text-blue-500 mt-1">Copy this into your ~/.config/time-logger/config.json</p>
+              </div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Workspace Name</label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Workspace Name" />
               </div>
               <div className="space-y-1">

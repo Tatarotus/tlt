@@ -66,6 +66,7 @@ orderBy: (_lists: any, { asc }: any) => [asc(_lists.order)]
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col h-screen overflow-hidden font-sans">
       <BoardHeader 
+        userId={session.userId} 
         boardId={board.id}
         boardName={board.name}
         boardSlug={board.slug}

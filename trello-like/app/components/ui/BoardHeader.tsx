@@ -7,6 +7,7 @@ import { updateBoard, deleteBoard } from "@/app/actions/board-actions";
 import { useRouter } from "next/navigation";
 
 interface BoardHeaderProps {
+  userId?: string;
   boardId: string;
   boardName: string;
   boardSlug: string;
@@ -14,7 +15,7 @@ interface BoardHeaderProps {
   workspaceSlug: string;
 }
 
-export function BoardHeader({ boardId, boardName, boardSlug, workspaceName, workspaceSlug }: BoardHeaderProps) {
+export function BoardHeader({ boardId, boardName, boardSlug, workspaceName, workspaceSlug, userId }: BoardHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newName, setNewName] = useState(boardName);
   const [newSlug, setNewSlug] = useState(boardSlug);
@@ -96,7 +97,14 @@ export function BoardHeader({ boardId, boardName, boardSlug, workspaceName, work
 
             <div className="p-6 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Board Name</label>
+                <div className="space-y-1 bg-blue-50/50 p-3 rounded-lg border border-blue-100 mb-4">
+                <label className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-1">Your CLI User ID</label>
+                <code className="text-[10px] font-mono text-blue-800 break-all bg-white/80 p-1.5 rounded border border-blue-200 block">
+                  {userId || "Not logged in"}
+                </code>
+                <p className="text-[9px] text-blue-500 mt-1">Copy this into your ~/.config/time-logger/config.json</p>
+              </div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Board Name</label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Board Name" />
               </div>
               <div className="space-y-1">
