@@ -61,14 +61,20 @@ describe('Math Utils', () => {
     });
   });
 
-  describe('calculateDiscount', () => {
-    it('should calculate discount correctly', () => {
-      expect(calculateDiscount(100, 10)).toBe(90);
-    });
+describe('calculateDiscount', () => {
+  it('should calculate discount correctly', () => {
+    expect(calculateDiscount(100, 10)).toBe(90);
+  });
 
-    it('should return original price when discount is 0', () => {
-      expect(calculateDiscount(100, 0)).toBe(100);
-    });
+  it('should return original price when discount is exactly 0 (edge case for > vs >=)', () => {
+    expect(calculateDiscount(100, 0)).toBe(100);
+  });
+
+  it('should apply discount when discount is 0.001 (positive but very small)', () => {
+    const result = calculateDiscount(100, 0.001);
+    expect(result).toBeLessThan(100);
+    expect(result).toBe(99.999);
+  });
 
     it('should return original price for negative discounts', () => {
       expect(calculateDiscount(100, -10)).toBe(100);

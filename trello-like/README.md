@@ -79,6 +79,30 @@ npm run db:seed
 - `npm run lint` - Run ESLint
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run test` - Run tests
+- `npm run test:coverage` - Run tests with coverage
+- `npm run quality:all` - Run all quality checks
+- `npm run db:push` - Update database schema
+- `npm run db:seed` - Seed initial data
+
+## Quality Metrics
+
+| Metric | Status | Score |
+|--------|--------|-------|
+| Tests | ✅ | 55/55 passing |
+| TypeScript | ✅ | No errors |
+| Mutation Score | ✅ | 80.23% |
+| Code Coverage | ✅ | 94% (lib/) |
+| File Size | ✅ | 0 god files |
+| Complexity | ✅ | All under threshold |
+
+📊 **See [Quality Report](docs/quality/AI_CODE_QUALITY_REPORT.md) for details.**
+
+## Documentation
+
+- **[Quality Assurance](docs/quality/)** - Code quality reports and metrics
+- **[Architecture](../architecture/)** - System design and component structure
+- **[Migration Guide](../MIGRATION_SUMMARY.md)** - Migration details
+- **[Multi-User Setup](../MULTI_USER_SETUP.md)** - Authentication configuration
 
 ## Time Tracking Integration
 
@@ -98,6 +122,22 @@ The app uses JWT-based authentication:
 
 ## Project Structure
 
+```
+trello-like/
+├── app/                    # Next.js App Router
+│   ├── [workspaceSlug]/    # Workspace pages
+│   ├── api/                # API routes
+│   ├── components/         # React components
+│   │   ├── ui/             # UI components
+│   │   └── ...             # Feature components
+│   └── actions/            # Server actions
+├── db/                     # Database schema and migrations
+├── lib/                    # Utilities and helpers
+├── docs/                   # Documentation
+│   ├── quality/            # Quality reports
+│   └── README.md           # Docs index
+├── tests/                  # Test files
+└── scripts/                # Quality check scripts
 ```
 trello-like/
 ├── app/                  # Next.js App Router

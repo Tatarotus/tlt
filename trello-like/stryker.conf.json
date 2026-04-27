@@ -17,5 +17,6 @@
   "testRunnerCommand": "npx jest --config jest.config.js",
   "timeoutFactor": 1.5,
   "timeoutMS": 120000,
-  "coverageAnalysis": "off"
+  "coverageAnalysis": "off",
+  "ignorePatterns": ["**/node_modules/**"]
 }
