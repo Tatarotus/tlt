@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from '@/db';
-import { sessions, categories } from '@/db/schema';
-import { desc, gte, and, eq, sql } from 'drizzle-orm';
+import { sessions } from '@/db/schema';
+import { desc, gte, and, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
 export type CategoryRange = 'today' | 'week' | 'month' | 'all';
@@ -24,6 +24,16 @@ export interface SessionData {
   endTime: Date | null;
   duration: number;
   notes: string | null;
+}
+
+interface InternalCategory {
+  id: number;
+  name: string;
+  parentId: number | null;
+  children: Map<string, InternalCategory>;
+  totalDuration: number;
+  sessionCount: number;
+  sessions: unknown[];
 }
 
 export async function getCategoryData(range: CategoryRange = 'week') {
@@ -74,7 +84,7 @@ export async function getCategoryData(range: CategoryRange = 'week') {
     });
 
     // Group by main category (before colon)
-    const categoryMap = new Map<string, any>();
+    const categoryMap = new Map<string, InternalCategory>();
 
     sessionsWithDuration.forEach(s => {
       const parts = s.category.split(':');
@@ -87,14 +97,14 @@ export async function getCategoryData(range: CategoryRange = 'week') {
           id: 0,
           name: mainCategory,
           parentId: null,
-          children: new Map<string, any>(),
+          children: new Map<string, InternalCategory>(),
           totalDuration: 0,
           sessionCount: 0,
           sessions: [],
         });
       }
 
-      const mainCat = categoryMap.get(mainCategory);
+      const mainCat = categoryMap.get(mainCategory)!;
       mainCat.totalDuration += s.duration;
       mainCat.sessionCount += 1;
       mainCat.sessions.push(s);
@@ -106,12 +116,13 @@ export async function getCategoryData(range: CategoryRange = 'week') {
             id: 0,
             name: subCategory,
             parentId: 0,
+            children: new Map<string, InternalCategory>(),
             totalDuration: 0,
             sessionCount: 0,
             sessions: [],
           });
         }
-        const subCat = mainCat.children.get(subCategory);
+        const subCat = mainCat.children.get(subCategory)!;
         subCat.totalDuration += s.duration;
         subCat.sessionCount += 1;
         subCat.sessions.push(s);
@@ -119,10 +130,10 @@ export async function getCategoryData(range: CategoryRange = 'week') {
     });
 
     // Convert to array and sort by duration
-    const categoryArray = Array.from(categoryMap.values()).map((cat: any) => ({
+    const categoryArray = Array.from(categoryMap.values()).map((cat) => ({
       ...cat,
-      children: Array.from(cat.children.values()).sort((a: any, b: any) => b.totalDuration - a.totalDuration),
-    })).sort((a: any, b: any) => b.totalDuration - a.totalDuration);
+      children: Array.from(cat.children.values()).sort((a, b) => b.totalDuration - a.totalDuration),
+    })).sort((a, b) => b.totalDuration - a.totalDuration);
 
     return {
       success: true,
@@ -135,10 +146,4 @@ export async function getCategoryData(range: CategoryRange = 'week') {
     console.error("Category data error:", error);
     return { success: false, error: "Failed to fetch category data" };
   }
-}
-
-function formatDuration(ms: number) {
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  return `${hours}h ${minutes}m`;
 }

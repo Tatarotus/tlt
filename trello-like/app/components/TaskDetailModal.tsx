@@ -2,30 +2,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { Task } from '@/lib/types';
 import { createTask, getSubTasks, updateTask, deleteTask } from '../actions/task-actions';
 import { aiSuggestTags, aiMakeTaskPerfect, aiRewriteTask, aiWriteStatusUpdate, createBatchSubtasks } from '../actions/ai-actions';
 import { TimerButton } from './TimerButton';
-
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  dueDate: string | null;
-  labels: string[] | null;
-  completed?: boolean | null;
-  order: number;
-  listId: string;
-  parentId?: string | null;
-  children?: Task[];
-}
 
 interface TaskDetailModalProps {
   task: Task;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (taskId: string, updates: Partial<Task>) => Promise<void>;
-  onDelete: (taskId: string) => Promise<void>;
-  onSubtasksChange?: (parentId: string, subtasks: Task[]) => void;
+  onSave: (_taskId: string, _updates: Partial<Task>) => Promise<void>;
+  onDelete: (_taskId: string) => Promise<void>;
+  onSubtasksChange?: (_parentId: string, _subtasks: Task[]) => void;
 }
 
 const AVAILABLE_LABELS = [
@@ -44,6 +32,7 @@ const LABEL_COLOR_MAP: Record<string, string> = {
   'Purple': 'bg-purple-500',
 };
 
+// eslint-disable-next-line max-statements
 export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, onDelete, onSubtasksChange }: TaskDetailModalProps) {
   const [taskStack, setTaskStack] = useState<Task[]>([initialTask]);
   const currentTask = taskStack[taskStack.length - 1];
@@ -119,7 +108,7 @@ fetchSubtasks(currentTask.id);
     setIsSaving(false);
   };
 
-  const handleToggleCompleted = async (e: React.MouseEvent) => {
+  const _handleToggleCompleted = async (e: React.MouseEvent) => {
       e.stopPropagation();
       const newCompletedState = !completed;
       setCompleted(newCompletedState);
@@ -171,7 +160,7 @@ fetchSubtasks(currentTask.id);
         } else {
             setAiError(result.error || "Failed to generate status update.");
         }
-    } catch (err) {
+    } catch (_err) {
         setAiError("AI error.");
     }
     setIsAiThinking(false);
@@ -204,7 +193,7 @@ fetchSubtasks(currentTask.id);
         } else {
             setAiError(result.error || "Failed to optimize task.");
         }
-    } catch (err) {
+    } catch (_err) {
         setAiError("AI error.");
     }
     setIsAiThinking(false);
@@ -221,7 +210,7 @@ fetchSubtasks(currentTask.id);
         } else {
             setAiError(result.error || "Rewrite failed.");
         }
-    } catch (err) {
+    } catch (_err) {
         setAiError("AI error.");
     }
     setIsAiThinking(false);
@@ -239,7 +228,7 @@ fetchSubtasks(currentTask.id);
           } else {
               setAiError(res.error || "Tag suggestion failed.");
           }
-      } catch (err) {
+      } catch (_err) {
           setAiError("AI error.");
       }
       setIsAiThinking(false);

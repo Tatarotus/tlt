@@ -15,13 +15,12 @@ endDate: string;
 }
 
 interface CalendarHighlightProps {
-highlights: Highlight[];
-workspaceSlug: string;
-onHighlightsChange: () => void;
-onHighlightClick: (highlight: Highlight) => void;
-taskDots?: { taskId: string; title: string; dueDate: string }[];
+  highlights: Highlight[];
+  workspaceSlug: string;
+  onHighlightsChange: () => void;
+  onHighlightClick: (_highlight: Highlight) => void;
+  taskDots?: { taskId: string; title: string; dueDate: string }[];
 }
-
 const MONTHS = [
 "January", "February", "March", "April", "May", "June",
 "July", "August", "September", "October", "November", "December"
@@ -99,7 +98,7 @@ export function CalendarView({
       } else {
         setCreateError(data.error);
       }
-    } catch (err) {
+    } catch (_err) {
       setCreateError("Failed to create highlight");
     } finally {
       setIsCreatingHighlight(false);
@@ -115,8 +114,8 @@ export function CalendarView({
       if (data.success) {
         onHighlightsChange();
       }
-    } catch (err) {
-      console.error("Failed to delete highlight:", err);
+    } catch (_err) {
+      console.error("Failed to delete highlight:", _err);
     }
   };
 
@@ -194,8 +193,6 @@ export function CalendarView({
             const hasHighlight = dayHighlights.length > 0;
             const primaryHighlight = dayHighlights[0];
             const colorClasses = hasHighlight ? getColorClasses(primaryHighlight.color) : null;
-
-            const isSelectedDayWithHighlight = inSelection && hasHighlight;
 
             return (
               <div

@@ -1,82 +1,70 @@
-import KanbanBoard from "../../components/KanbanBoard";
 import { db } from "@/db";
-import { getSession } from "@/lib/session";
 import { boards, workspaces } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import Link from "next/link";
-import { BoardHeader } from "../../components/ui/BoardHeader";
+import { getSession } from "@/lib/session";
+import { redirect, notFound } from "next/navigation";
+import KanbanBoard from "@/app/components/KanbanBoard";
 
-export default async function BoardPage({ params }: { params: Promise<{ workspaceSlug: string, boardSlug: string }> }) {
+export default async function BoardPage({
+  params,
+}: {
+  params: Promise<{ workspaceSlug: string; boardSlug: string }>;
+}) {
   const { workspaceSlug, boardSlug } = await params;
   const session = await getSession();
 
   if (!session) {
-      return (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-              <h1 className="text-xl font-medium text-gray-900">Unauthorized</h1>
-              <Link href="/login" className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Login to continue</Link>
-          </div>
-      );
+    redirect("/login");
   }
 
-  // Find workspace first to ensure user owns it
   const workspace = await db.query.workspaces.findFirst({
-    where: and(eq(workspaces.slug, workspaceSlug), eq(workspaces.userId, session.userId))
+    where: eq(workspaces.slug, workspaceSlug),
   });
 
-  if (!workspace) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <h1 className="text-xl font-medium text-gray-900">Workspace not found</h1>
-        <Link href="/" className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Go back to Workspaces</Link>
-      </div>
-    );
+  if (!workspace || workspace.userId !== session.userId) {
+    notFound();
   }
 
-const board = await db.query.boards.findFirst({
-where: and(eq(boards.slug, boardSlug), eq(boards.workspaceId, workspace.id)),
-with: {
-lists: {
-with: {
-tasks: {
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-where: (_tasks: any, { isNull }: any) => isNull(_tasks.parentId),
-with: {
-children: true
-},
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-orderBy: (_tasks: any, { asc }: any) => [asc(_tasks.order)]
-}
-},
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-orderBy: (_lists: any, { asc }: any) => [asc(_lists.order)]
-}
-}
-});
+  const board = await db.query.boards.findFirst({
+    where: and(eq(boards.slug, boardSlug), eq(boards.workspaceId, workspace.id)),
+    with: {
+      lists: {
+        with: {
+          tasks: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            where: (t: any, { isNull }: any) => isNull(t.parentId),
+            with: {
+              children: true
+            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            orderBy: (t: any, { asc }: any) => [asc(t.order)]
+          }
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        orderBy: (l: any, { asc }: any) => [asc(l.order)]
+      },
+    },
+  });
 
   if (!board) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <h1 className="text-xl font-medium text-gray-900">Board not found</h1>
-        <Link href={`/${workspaceSlug}`} className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Back to Workspace</Link>
-      </div>
-    );
+    notFound();
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col h-screen overflow-hidden font-sans">
-      <BoardHeader 
-        userId={session.userId} 
-        boardId={board.id}
-        boardName={board.name}
-        boardSlug={board.slug}
-        workspaceName={workspace.name}
-        workspaceSlug={workspace.slug}
-      />
+    <div className="flex-1 flex flex-col h-full">
+      <div className="p-4 border-b flex items-center justify-between bg-background/50 backdrop-blur-sm sticky top-0 z-10">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">{board.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            {workspace.name} / {board.name}
+          </p>
+        </div>
+      </div>
       
-<div className="flex-1 overflow-hidden relative">
-<KanbanBoard initialLists={board.lists as any} boardId={board.id} />
-</div>
-    </main>
+      <div className="flex-1 overflow-hidden">
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <KanbanBoard initialLists={board.lists as any} boardId={board.id} />
+      </div>
+    </div>
   );
 }

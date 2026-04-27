@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { RadialBarChart, RadialBar, Tooltip, ResponsiveContainer } from "recharts";
-import { categories, timeData } from "../data";
+import { categories } from "../data";
 
 export function PremiumChart() {
   const sortedData = [...categories].sort((a, b) => a.hours - b.hours);

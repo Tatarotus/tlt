@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from '@/db';
-import { workspaces, boards, lists, tasks } from '@/db/schema';
+import { users, workspaces, boards, lists, tasks } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
@@ -13,6 +13,30 @@ function slugify(text: string) {
     .replace(/\s+/g, '-')     // Replace spaces with -
     .replace(/[^\w-]+/g, '')  // Remove all non-word chars
     .replace(/--+/g, '-');    // Replace multiple - with single -
+}
+
+export async function getSidebarData() {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    const user = await db.query.users.findFirst({ 
+      where: eq(users.id, session.userId) 
+    });
+    
+    const userWorkspaces = await db.query.workspaces.findMany({
+      where: eq(workspaces.userId, session.userId),
+      with: { boards: true }
+    });
+
+    return { 
+      success: true, 
+      user, 
+      workspaces: userWorkspaces 
+    };
+  } catch {
+    return { success: false, error: "Database fetch failed" };
+  }
 }
 
 export async function createWorkspace(name: string, description?: string, slug?: string) {
@@ -30,8 +54,7 @@ export async function createWorkspace(name: string, description?: string, slug?:
       description,
     }).returning();
     return { success: true, workspace: newWorkspace[0] };
-  } catch (error) {
-    console.error("Failed to create workspace:", error);
+  } catch {
     return { success: false, error: "Database insert failed" };
   }
 }
@@ -49,12 +72,12 @@ export async function updateWorkspace(
       where: and(eq(workspaces.id, workspaceId), eq(workspaces.userId, session.userId))
     });
 
-if (!workspace) return { success: false, error: "Unauthorized or not found" };
+    if (!workspace) return { success: false, error: "Unauthorized or not found" };
 
-const updateData: { name?: string; description?: string; slug?: string } = { ...data };
-if (data.slug) {
-updateData.slug = slugify(data.slug);
-}
+    const updateData: { name?: string; description?: string; slug?: string } = { ...data };
+    if (data.slug) {
+      updateData.slug = slugify(data.slug);
+    }
 
     const updated = await db.update(workspaces)
       .set(updateData)
@@ -62,8 +85,7 @@ updateData.slug = slugify(data.slug);
       .returning();
 
     return { success: true, workspace: updated[0] };
-  } catch (error) {
-    console.error("Failed to update workspace:", error);
+  } catch {
     return { success: false, error: "Database update failed" };
   }
 }
@@ -113,8 +135,7 @@ export async function deleteWorkspace(workspaceId: string) {
     await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
     
     return { success: true };
-  } catch (error) {
-    console.error("Failed to delete workspace:", error);
+  } catch {
     return { success: false, error: "Database delete failed" };
   }
 }

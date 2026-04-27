@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { workspaces, boards } from '@/db/schema';
+import { workspaces } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 import { findOrCreateBoardByName } from '@/app/actions/board-actions';

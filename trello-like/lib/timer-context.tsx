@@ -16,13 +16,14 @@ interface TimerContextType {
   activeTimer: Timer | null;
   loading: boolean;
   error: string | null;
-  startTimer: (category: string, cardId?: string, notes?: string) => Promise<void>;
-  stopTimer: (cardId?: string) => Promise<void>;
+  startTimer: (_category: string, _cardId?: string, _notes?: string) => Promise<void>;
+  stopTimer: (_cardId?: string) => Promise<void>;
   refreshTimer: () => Promise<void>;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
+// eslint-disable-next-line max-lines-per-function
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [activeTimer, setActiveTimer] = useState<Timer | null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,9 +39,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         setActiveTimer(null);
       }
       setError(null);
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to fetch timer");
-      console.error("Timer fetch error:", err);
     }
   }, []);
 
@@ -66,9 +66,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         } else {
           setError(data.error || "Failed to start timer");
         }
-      } catch (err) {
+      } catch (_err) {
         setError("Failed to start timer");
-        console.error("Timer start error:", err);
       } finally {
         setLoading(false);
       }
@@ -91,9 +90,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       } else {
         setError(data.error || "Failed to stop timer");
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to stop timer");
-      console.error("Timer stop error:", err);
     } finally {
       setLoading(false);
     }

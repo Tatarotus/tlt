@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, ChevronRight, ChevronDown, Calendar, Zap, ListOrdered, PieChart as PieChartIcon, BarChart3, Activity, TrendingUp } from 'lucide-react';
-import { getCategoryData, CategoryRange, CategoryData as CategoryDataType } from '@/app/actions/category-actions';
+import { Clock, ChevronRight, ChevronDown, Calendar, Zap, ListOrdered, TrendingUp } from 'lucide-react';
+import { getCategoryData, CategoryRange, CategoryData as CategoryDataType, SessionData } from '@/app/actions/category-actions';
 import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip,
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
 
@@ -47,18 +47,9 @@ function formatTime(date: Date): string {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDurationShort(ms: number): string {
-  const hours = Math.floor(ms / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-}
-
 interface CategoryWithChildren extends CategoryDataType {
   children?: CategoryWithChildren[];
-  sessions?: any[];
+  sessions?: SessionData[];
 }
 
 function CategoryItem({ category, index }: { category: CategoryWithChildren, index: number }) {
@@ -123,15 +114,20 @@ function CategoryItem({ category, index }: { category: CategoryWithChildren, ind
 
 export function CategoryDashboard() {
   const [range, setRange] = useState<CategoryRange>('week');
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{
+    categories: CategoryWithChildren[];
+    totalDuration: number;
+    totalSessions: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       const res = await getCategoryData(range);
-      if (res.success) {
-        setData(res);
+      if (res.success && res.categories) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setData(res as any);
       }
       setLoading(false);
     }
@@ -141,7 +137,7 @@ export function CategoryDashboard() {
   const { categories: categoryList, totalDuration, totalSessions } = data || {};
 
   const pieData = useMemo(() => {
-    return categoryList ? categoryList.map((cat: any, i: number) => ({
+    return categoryList ? categoryList.map((cat, i: number) => ({
       name: cat.name,
       value: Math.round(cat.totalDuration / (1000 * 60 * 60) * 10) / 10,
       color: COLORS[i % COLORS.length],
@@ -168,8 +164,8 @@ export function CategoryDashboard() {
       dates.push(dateStr);
     }
 
-    categoryList.forEach((cat: any) => {
-      cat.sessions?.forEach((s: any) => {
+    categoryList.forEach((cat) => {
+      cat.sessions?.forEach((s) => {
         const dateStr = new Date(s.startTime).toISOString().split('T')[0];
         if (dayMap.has(dateStr)) {
           dayMap.set(dateStr, dayMap.get(dateStr)! + s.duration);
@@ -320,6 +316,7 @@ export function CategoryDashboard() {
                     <RechartsTooltip 
                       cursor={{ fill: '#f8fafc' }}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(value: any) => [`${value} hours`, 'Time']}
                     />
                     <Bar 
@@ -351,25 +348,26 @@ export function CategoryDashboard() {
                       paddingAngle={4}
                       dataKey="value"
                     >
-                      {pieData.map((entry: any, index: number) => (
+                      {pieData.map((entry: { name: string; value: number; color: string }, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                     <RechartsTooltip
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(value: any) => `${value}h`}
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-3xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: any) => acc + cur.value, 0).toFixed(1)}h</span>
+                  <span className="text-3xl font-bold text-gray-900">{pieData.reduce((acc: number, cur: { value: number }) => acc + cur.value, 0).toFixed(1)}h</span>
                   <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</span>
                 </div>
               </div>
               
               {/* Compact Legend */}
               <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 max-h-[100px] overflow-y-auto scrollbar-thin pr-1">
-                {pieData.map((entry: any, index: number) => (
+                {pieData.map((entry: { name: string; value: number; color: string }) => (
                   <div key={entry.name} className="flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <div 

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { tags } from '@/db/schema';
+import { tags, workspaces } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
-import { workspaces } from '@/db/schema';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();

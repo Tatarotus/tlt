@@ -1,7 +1,6 @@
 import { db } from "@/db";
 import { createWorkspace, deleteWorkspace } from "./actions/workspace-actions";
 import { revalidatePath } from "next/cache";
-import { Container } from "./components/ui/Container";
 import { BoardCard } from "./components/ui/BoardCard";
 import { Button } from "./components/ui/Button";
 import { Input } from "./components/ui/Input";

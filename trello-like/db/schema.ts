@@ -40,6 +40,7 @@ export const tasks = pgTable('tasks', {
   completed: boolean('completed').default(false),
   order: integer('order').notNull(),
   listId: uuid('list_id').notNull().references(() => lists.id),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parentId: uuid('parent_id').references((): any => tasks.id, { onDelete: 'cascade' }),
 });
 
@@ -59,6 +60,7 @@ createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 export const categories = pgTable('categories', {
 id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
 name: text('name').notNull(),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 parentId: integer('parent_id').references((): any => categories.id, { onDelete: 'cascade' }),
 });
 

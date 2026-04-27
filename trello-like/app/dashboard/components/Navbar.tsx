@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Flame, UserCircle, Clock, CalendarDays, BarChart2, MoreHorizontal } from "lucide-react";
+import { Flame, UserCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {

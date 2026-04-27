@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip,
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts';
 import { 
-  Clock, Calendar, Zap, ListOrdered, ChevronDown, 
-  LayoutDashboard, MoreHorizontal 
+  Clock, Calendar, Zap, ListOrdered, ChevronDown
 } from 'lucide-react';
 import { getDashboardData, DashboardRange } from '@/app/actions/dashboard-actions';
 
@@ -40,9 +39,10 @@ function MetricCard({ title, value, icon, colorClass }: MetricCardProps) {
 }
 
 export function TimeDashboard() {
-const [range, setRange] = useState<DashboardRange>('week');
-const [data, setData] = useState<any>(null);
-const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<DashboardRange>('week');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {

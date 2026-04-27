@@ -100,3 +100,6 @@ bun.lockb
 *.cert
 tmp/
 temp/
+.stryker-tmp/
+eslint_report.json
+coverage/

@@ -1,22 +1,15 @@
 import Link from "next/link";
-import { db } from "@/db";
-import { getSession } from "@/lib/session";
-import { eq } from "drizzle-orm";
-import { workspaces, users } from "@/db/schema";
 import { logout } from "../actions/auth-actions";
+import { getSidebarData } from "../actions/workspace-actions";
 
 export async function Sidebar() {
-  const session = await getSession();
-  if (!session) return null;
-
-  const user = await db.query.users.findFirst({ 
-    where: eq(users.id, session.userId) 
-  });
+  const data = await getSidebarData();
   
-  const userWorkspaces = await db.query.workspaces.findMany({
-    where: eq(workspaces.userId, session.userId),
-    with: { boards: true }
-  });
+  if (!data.success || !data.user) {
+    return null;
+  }
+
+  const { user, workspaces: userWorkspaces } = data;
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-gray-200 bg-gray-50 shrink-0 h-screen justify-between">
@@ -31,7 +24,7 @@ export async function Sidebar() {
         </div>
         
         <nav className="flex-1 overflow-y-auto p-3 space-y-6">
-          {userWorkspaces.map((ws) => (
+          {userWorkspaces?.map((ws) => (
             <div key={ws.id} className="space-y-1">
               <Link 
                 href={`/${ws.slug}`} 

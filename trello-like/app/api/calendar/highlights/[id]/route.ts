@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { calendarHighlights, workspaces } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { calendarHighlights } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
-import { toISOLocalDate } from '@/lib/date-utils';
 
 export async function GET(
   request: NextRequest,
@@ -26,17 +25,18 @@ export async function GET(
       return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
     }
 
-if ((highlight.workspace as any).userId !== session.userId) {
-return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((highlight.workspace as any).userId !== session.userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
 
     return NextResponse.json({ success: true, highlight });
-  } catch (error) {
-    console.error('Error fetching highlight:', error);
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to fetch highlight' }, { status: 500 });
   }
 }
 
+// eslint-disable-next-line max-statements
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -61,6 +61,7 @@ if (!existingHighlight) {
 return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 if ((existingHighlight.workspace as any).userId !== session.userId) {
 return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 }
@@ -117,8 +118,7 @@ return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       .returning();
 
     return NextResponse.json({ success: true, highlight: updatedHighlight });
-  } catch (error) {
-    console.error('Error updating highlight:', error);
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to update highlight' }, { status: 500 });
   }
 }
@@ -144,6 +144,7 @@ if (!existingHighlight) {
 return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 if ((existingHighlight.workspace as any).userId !== session.userId) {
 return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 }
@@ -151,8 +152,7 @@ return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     await db.delete(calendarHighlights).where(eq(calendarHighlights.id, id));
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting highlight:', error);
+    } catch (_error) {
     return NextResponse.json({ error: 'Failed to delete highlight' }, { status: 500 });
-  }
-}
+    }
+    }

@@ -5,7 +5,7 @@ import { HIGHLIGHT_COLORS, COLOR_GROUPS } from '@/lib/highlight-colors';
 
 interface ColorPickerProps {
   selectedColor: string;
-  onColorSelect: (color: string) => void;
+  onColorSelect: (_color: string) => void;
 }
 
 export function ColorPicker({ selectedColor, onColorSelect }: ColorPickerProps) {

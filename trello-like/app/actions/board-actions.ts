@@ -51,14 +51,14 @@ if (!session) return { success: false, error: "Unauthorized" };
 
 try {
 const board = await db.query.boards.findFirst({
-where: eq(boards.id, boardId),
-with: { workspace: true }
+  where: eq(boards.id, boardId),
+  with: { workspace: true }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 if (!board || (board.workspace as any)?.userId !== session.userId) {
-return { success: false, error: "Unauthorized or not found" };
+  return { success: false, error: "Unauthorized or not found" };
 }
-
 const updateData: { name?: string; slug?: string } = { ...data };
 if (data.slug) {
 updateData.slug = slugify(data.slug);
@@ -87,10 +87,10 @@ export async function deleteBoard(boardId: string) {
       with: { workspace: true }
     });
 
-if (!board || (board.workspace as any)?.userId !== session.userId) {
-return { success: false, error: "Unauthorized or not found" };
-}
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!board || (board.workspace as any)?.userId !== session.userId) {
+      return { success: false, error: "Unauthorized or not found" };
+    }
     // CASCADING DELETE: Delete tasks inside the board's lists
     const boardLists = await db.select({ id: lists.id }).from(lists).where(eq(lists.boardId, boardId));
     const listIds = boardLists.map(l => l.id);

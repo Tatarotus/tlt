@@ -7,7 +7,7 @@ interface BoardCardProps {
   count?: number;
   countLabel?: string;
   href: string;
-  deleteAction?: (formData: FormData) => void;
+  deleteAction?: (_formData: FormData) => void;
   variant?: 'board' | 'workspace';
 }
 

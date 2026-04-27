@@ -22,31 +22,42 @@ export function toISOLocalDate(date: Date): string {
  * Prevents timezone shifting by parsing YYYY-MM-DD components directly from strings.
  */
 export function parseISOLocal(dateValue: Date | string | { startDate?: string; start_date?: string } | null): Date {
-if (!dateValue) return new Date();
+  if (!dateValue) return new Date();
 
-// Handle Drizzle snake_case fallback if property mapping failed
-const val = typeof dateValue === 'object' && 'startDate' in dateValue ? (dateValue.startDate || dateValue.start_date) : dateValue;
-  
-  if (val instanceof Date) {
-    return new Date(val.getFullYear(), val.getMonth(), val.getDate());
+  // Handle Date objects
+  if (dateValue instanceof Date) {
+    return new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
   }
 
-  const dateStr = String(val);
-  
-  // Try to parse YYYY-MM-DD directly to avoid timezone shift
+  // Handle objects with startDate/start_date properties
+  if (typeof dateValue === 'object' && ('startDate' in dateValue || 'start_date' in dateValue)) {
+    const val = dateValue.startDate || dateValue.start_date;
+    const dateStr = String(val);
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1;
+      const day = parseInt(match[3], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  }
+
+  // Handle string dates
+  const dateStr = String(dateValue);
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) {
     const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10) - 1; // 0-indexed
+    const month = parseInt(match[2], 10) - 1;
     const day = parseInt(match[3], 10);
     return new Date(year, month, day);
   }
 
-  // Fallback for other formats
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return new Date();
-  
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+// Fallback for other formats
+const date = new Date(dateStr);
+if (isNaN(date.getTime())) return new Date();
+
+return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 export function isDateInRange(date: Date, start: Date, end: Date): boolean {

@@ -4,34 +4,30 @@ import {
   DndContext, 
   closestCorners, 
   DragEndEvent, 
-  DragOverEvent, 
-  DragStartEvent, 
-  DragOverlay, 
-  useDroppable,
+  DragStartEvent,
+  DragOverlay,
   defaultDropAnimationSideEffects,
   DropAnimation,
-  PointerSensor,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { arrayMove } from '@dnd-kit/sortable';
+import { Task, List } from '@/lib/types';
+import { BoardColumn } from './BoardColumn';
 import { TaskCard } from './TaskCard';
 import { TaskDetailModal } from './TaskDetailModal';
-import { createTask, deleteTask, updateListTitle, createList, deleteList, reorderTasks, updateTask } from '../actions/task-actions';
+import { useKanbanBoard } from './useKanbanBoard';
+import { findTask, findContainer, handleDragOver } from './dragUtils';
+import { taskManagement } from './taskManagement';
+import { listManagement } from './listManagement';
 import { useTimer } from '@/lib/timer-context';
-
-type Task = { 
-  id: string; 
-  title: string; 
-  description: string | null;
-  dueDate: string | null;
-  labels: string[] | null;
-  completed?: boolean | null;
-  order: number; 
-  listId: string;
-  children?: Task[];
-};
-type List = { id: string; title: string; order: number; tasks: Task[] };
+import { 
+  createTask, 
+  deleteTask, 
+  updateTask, 
+  updateListTitle, 
+  createList, 
+  deleteList,
+  reorderTasks 
+} from '@/app/actions/task-actions';
 
 const dropAnimation: DropAnimation = {
   sideEffects: defaultDropAnimationSideEffects({
@@ -43,327 +39,44 @@ const dropAnimation: DropAnimation = {
   }),
 };
 
-function BoardColumn({ 
-  list, tasks, onAddTask, onRenameList, onDeleteList, onTaskClick
-}: { 
-  list: List; 
-  tasks: Task[];
-  onAddTask: (listId: string, title: string) => void;
-  onRenameList: (listId: string, newTitle: string) => void;
-  onDeleteList: (listId: string) => void;
-  onTaskClick: (task: Task) => void;
-}) {
-  const { setNodeRef } = useDroppable({ id: list.id });
-  const [isAdding, setIsAdding] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [listTitle, setListTitle] = useState(list.title);
-
-  const handleRenameSubmit = () => {
-    setIsEditingTitle(false);
-    const trimmedTitle = listTitle.trim();
-    if (trimmedTitle === "") onDeleteList(list.id);
-    else if (trimmedTitle !== list.title) onRenameList(list.id, trimmedTitle);
-    else setListTitle(list.title); 
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) {
-      setIsAdding(false);
-      return;
-    }
-    onAddTask(list.id, newTaskTitle);
-    setNewTaskTitle(""); 
-    // Keep adding mode open for rapid entry
-  };
-
-  return (
-    <div className="bg-gray-100/50 border border-gray-200/60 rounded-xl w-80 flex-shrink-0 flex flex-col h-full max-h-full shadow-sm">
-      <div className="px-3 py-3 flex justify-between items-center border-b border-gray-200/50 group bg-white rounded-t-xl">
-        {isEditingTitle ? (
-          <input
-            autoFocus
-            className="font-semibold text-gray-900 bg-white border border-gray-300 px-2 py-1 rounded text-sm w-full outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500"
-            value={listTitle}
-            onChange={(e) => setListTitle(e.target.value)}
-            onBlur={handleRenameSubmit}
-            onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit()}
-          />
-        ) : (
-          <h3 
-            onClick={() => setIsEditingTitle(true)}
-            className="text-sm font-semibold text-gray-800 cursor-pointer hover:text-gray-600 flex-1 px-2 py-1 truncate transition-colors"
-          >
-            {list.title}
-          </h3>
-        )}
-        <div className="flex items-center gap-1">
-            <span className="bg-gray-100 text-gray-500 text-xs font-medium px-2 py-0.5 rounded-full flex items-center justify-center shrink-0 min-w-[20px]">
-              {tasks.length}
-            </span>
-            <button 
-                onClick={() => onDeleteList(list.id)}
-                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 rounded transition-all"
-                title="Delete list"
-            >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </button>
-        </div>
-      </div>
-      
-      <div ref={setNodeRef} className="flex-1 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-          {tasks.map((task) => (
-            <TaskCard 
-              key={task.id} 
-              task={task}
-              onClick={() => onTaskClick(task)}
-            />
-          ))}
-        </SortableContext>
-      </div>
-      
-      <div className="p-2 pt-0">
-        {isAdding ? (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-200">
-            <textarea
-              autoFocus
-              className="w-full p-2 rounded-md border border-gray-200 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 outline-none text-sm text-gray-900 resize-none placeholder:text-gray-400 min-h-[60px]"
-              placeholder="Enter a title for this card..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); }
-                if (e.key === 'Escape') setIsAdding(false);
-              }}
-            />
-            <div className="flex gap-2 items-center justify-end">
-               <button type="button" onClick={() => setIsAdding(false)} className="text-gray-500 hover:text-gray-700 px-3 py-1.5 text-xs font-medium transition-colors">
-                Cancel
-              </button>
-              <button type="submit" className="bg-gray-900 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-gray-800 transition-colors shadow-sm">
-                Add Card
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button 
-            onClick={() => setIsAdding(true)}
-            className="w-full text-left px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-200/50 rounded-lg transition-colors flex items-center gap-2 group"
-          >
-            <span className="p-0.5 rounded bg-gray-200 group-hover:bg-gray-300 transition-colors">
-                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14m-7-7h14"/></svg>
-            </span>
-            Add a card
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function KanbanBoard({ initialLists, boardId }: { initialLists: List[], boardId: string }) {
   const [lists, setLists] = useState<List[]>(initialLists);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  const [isAddingList, setIsAddingList] = useState(false);
-  const [newListTitle, setNewListTitle] = useState("");
   
-  const { startTimer, stopTimer, activeTimer } = useTimer();
+  const { sensors, setIsAddingList, isAddingList, newListTitle, setNewListTitle } = useKanbanBoard();
   
-  // Sensors for better drag detection
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Requires 8px movement to start drag, prevents accidental drags on clicks
-      },
-    })
-  );
+  const { 
+    stopTimer, 
+    activeTimer 
+  } = useTimer();
 
-useEffect(() => {
-setIsMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
-setLists(initialLists);
-}, [initialLists]);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
-  const handleAddTask = async (listId: string, title: string) => {
-    const tempId = `temp-${Date.now()}`;
-    const targetListIndex = lists.findIndex(l => l.id === listId);
-    if (targetListIndex === -1) return;
-    
-    const newOrder = lists[targetListIndex].tasks.length;
-    const optimisticTask: Task = { 
-        id: tempId, 
-        title, 
-        listId, 
-        order: newOrder,
-        description: '',
-        dueDate: null,
-        labels: []
-    };
-
-    setLists(prev => prev.map(list => list.id === listId ? { ...list, tasks: [...list.tasks, optimisticTask] } : list));
-    
-    const result = await createTask(title, listId, newOrder);
-    if (result.success && result.task) {
-      setLists(prev => prev.map(list => list.id === listId ? { ...list, tasks: list.tasks.map(task => task.id === tempId ? result.task! : task) } : list));
-    } else {
-        // Revert on failure
-        setLists(prev => prev.map(list => list.id === listId ? { ...list, tasks: list.tasks.filter(t => t.id !== tempId) } : list));
-    }
-  };
-
-  const handleDeleteTask = async (taskId: string) => {
-    const oldLists = [...lists];
-    
-    setLists(prev => prev.map(list => ({
-      ...list,
-      tasks: list.tasks.filter(t => {
-        if (t.id === taskId) return false;
-        if (t.children) {
-          t.children = t.children.filter(c => c.id !== taskId);
-        }
-        return true;
-      })
-    })));
-
-    const result = await deleteTask(taskId);
-    if (!result.success) setLists(oldLists); 
-    if (selectedTask?.id === taskId) setSelectedTask(null);
-  };
-
-  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
-    const oldLists = [...lists];
-    
-    setLists(prev => prev.map(list => ({
-        ...list,
-        tasks: list.tasks.map(task => {
-            if (task.id === taskId) return { ...task, ...updates };
-            if (task.children) {
-                const newChildren = task.children.map(c => c.id === taskId ? { ...c, ...updates } : c);
-                // If the update is adding a child (we'll handle this separately though)
-                return { ...task, children: newChildren };
-            }
-            return task;
-        })
-    })));
-
-    const result = await updateTask(taskId, updates);
-    if (!result.success) {
-        setLists(oldLists);
-    }
-  };
-
-  const handleSubtasksChange = (parentId: string, newSubtasks: Task[]) => {
-    setLists(prev => prev.map(list => ({
-        ...list,
-        tasks: list.tasks.map(task => {
-            if (task.id === parentId) {
-                return { ...task, children: newSubtasks };
-            }
-            return task;
-        })
-    })));
-  };
-
-  const handleRenameList = async (listId: string, newTitle: string) => {
-    setLists(prev => prev.map(list => list.id === listId ? { ...list, title: newTitle } : list));
-    await updateListTitle(listId, newTitle);
-  };
-
-  const handleAddList = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newListTitle.trim()) { setIsAddingList(false); return; }
-    const tempId = `temp-list-${Date.now()}`;
-    const newOrder = lists.length;
-    const optimisticList: List = { id: tempId, title: newListTitle, order: newOrder, tasks: [] };
-    
-    setLists(prev => [...prev, optimisticList]);
-    setNewListTitle("");
-    setIsAddingList(false);
-
-    const result = await createList(newListTitle, newOrder, boardId);
-    if (result.success && result.list) {
-        setLists(prev => prev.map(l => l.id === tempId ? { ...l, id: result.list!.id } : l));
-    } else {
-        setLists(prev => prev.filter(l => l.id !== tempId));
-    }
-  };
-
-  const handleDeleteList = async (listId: string) => {
-    const oldLists = [...lists];
-    setLists(prev => prev.filter(list => list.id !== listId));
-    const result = await deleteList(listId);
-    if (!result.success) setLists(oldLists); 
-  };
-
-  const findTask = (id: string) => {
-    for (const list of lists) {
-      const task = list.tasks.find((t) => t.id === id);
-      if (task) return task;
-    }
-    return null;
-  };
-
-  const findContainer = (id: string) => {
-    if (lists.find((l) => l.id === id)) return id;
-    return lists.find((l) => l.tasks.some((t) => t.id === id))?.id;
-  };
+  useEffect(() => {
+    setLists(initialLists);
+  }, [initialLists]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const task = findTask(String(active.id));
+    const task = findTask(String(active.id), lists);
     if (task) setActiveTask(task);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    const overId = over?.id;
-    if (!overId || active.id === overId) return;
-
-    const activeContainer = findContainer(String(active.id));
-    const overContainer = findContainer(String(overId));
-
-    if (!activeContainer || !overContainer || activeContainer === overContainer) return;
-
-    setLists((prev) => {
-      const activeItems = prev.find((l) => l.id === activeContainer)?.tasks || [];
-      const overItems = prev.find((l) => l.id === overContainer)?.tasks || [];
-      const activeIndex = activeItems.findIndex((t) => t.id === active.id);
-      const overIndex = overItems.findIndex((t) => t.id === overId);
-
-      let newIndex;
-      if (overId in prev.map(l => l.id)) {
-        newIndex = overItems.length + 1;
-      } else {
-        const isBelowOverItem = over &&
-          active.rect.current.translated &&
-          active.rect.current.translated.top > over.rect.top + over.rect.height;
-        const modifier = isBelowOverItem ? 1 : 0;
-        newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
-      }
-
-      return prev.map((l) => {
-        if (l.id === activeContainer) {
-          return { ...l, tasks: l.tasks.filter((t) => t.id !== active.id) };
-        } else if (l.id === overContainer) {
-          const newTasks = [...l.tasks];
-          // Determine the task to insert
-          const taskToMove = activeItems[activeIndex];
-          if(taskToMove) {
-             // Update its listId immediately for local state consistency
-             const updatedTask = { ...taskToMove, listId: overContainer };
-             newTasks.splice(newIndex, 0, updatedTask);
-          }
-          return { ...l, tasks: newTasks };
-        }
-        return l;
-      });
-    });
+  const syncListOrder = async (listId: string, listTasks: Task[]) => {
+    const updatedTasks = listTasks.map((task, index) => ({
+      id: task.id,
+      order: index,
+      listId
+    }));
+    await reorderTasks(updatedTasks);
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // eslint-disable-next-line max-statements
+  const handleDragEndEvent = async (event: DragEndEvent) => {
     const { active, over } = event;
     const activeId = String(active.id);
     const overId = over ? String(over.id) : null;
@@ -373,62 +86,45 @@ setLists(initialLists);
         return;
     }
 
-    const activeContainer = findContainer(activeId);
-    const overContainer = findContainer(overId);
+    const activeContainer = findContainer(activeId, lists);
+    const overContainer = findContainer(overId, lists);
 
-    if (activeContainer && overContainer) {
-      const activeListIndex = lists.findIndex((l) => l.id === activeContainer);
-      const overListIndex = lists.findIndex((l) => l.id === overContainer);
+    if (!activeContainer || !overContainer) {
+      setActiveTask(null);
+      return;
+    }
 
-if(activeListIndex !== -1 && overListIndex !== -1) {
-const activeIndex = lists[activeListIndex].tasks.findIndex((t) => t.id === activeId);
-const overIndex = lists[overListIndex].tasks.findIndex((t) => t.id === overId);
+    const activeListIndex = lists.findIndex((l) => l.id === activeContainer);
+    const overListIndex = lists.findIndex((l) => l.id === overContainer);
 
-const newLists = [...lists];
+    if (activeListIndex === -1 || overListIndex === -1) {
+      setActiveTask(null);
+      return;
+    }
 
-          if (activeContainer === overContainer) {
-            // Reordering within the same list
-            if (activeIndex !== overIndex) {
-              newLists[activeListIndex] = {
-                ...newLists[activeListIndex],
-                tasks: arrayMove(newLists[activeListIndex].tasks, activeIndex, overIndex)
-              };
-              setLists(newLists);
-              
-              // Prepare batch update
-              const updatedTasks = newLists[activeListIndex].tasks.map((task, index) => ({
-                  id: task.id,
-                  order: index,
-                  listId: activeContainer
-              }));
-              await reorderTasks(updatedTasks);
-            }
-          } else {
-            // Moved to a different list (already handled visually by dragOver, just need to sync final order)
-            // But we need to make sure the final state is captured correctly as 'dragOver' might have left it in a weird state?
-            // Actually dragOver handles the state mutation. dragEnd just needs to persist.
-            // Wait, dragOver mutates state optimistically. So 'lists' is already updated?
-            // Yes, standard dnd-kit pattern for sortable across containers.
-            
-            // Just persist the new order of the destination list
-            const destList = lists.find(l => l.id === overContainer);
-            if(destList) {
-                const updatedTasks = destList.tasks.map((task, index) => ({
-                    id: task.id,
-                    order: index,
-                    listId: overContainer
-                }));
-// Auto-stop timer when moving to "Done" list
-const normalizedTitle = destList.title.toLowerCase();
-if (normalizedTitle === "done") {
-if (activeTimer?.cardId === activeId) {
-await stopTimer(activeId);
-}
-}
-                 
-                 await reorderTasks(updatedTasks);
-            }
-          }
+    const activeIndex = lists[activeListIndex].tasks.findIndex((t) => t.id === activeId);
+    const overIndex = lists[overListIndex].tasks.findIndex((t) => t.id === overId);
+
+    const newLists = [...lists];
+
+    if (activeContainer === overContainer) {
+      if (activeIndex !== overIndex) {
+        newLists[activeListIndex] = {
+          ...newLists[activeListIndex],
+          tasks: arrayMove(newLists[activeListIndex].tasks, activeIndex, overIndex)
+        };
+        setLists(newLists);
+        await syncListOrder(activeContainer, newLists[activeListIndex].tasks);
+      }
+    } else {
+      const destList = lists.find((l) => l.id === overContainer);
+      if (destList) {
+        await syncListOrder(overContainer, destList.tasks);
+        
+        const normalizedTitle = destList.title.toLowerCase();
+        if (normalizedTitle === "done" && activeTimer?.cardId === activeId) {
+          await stopTimer(activeId);
+        }
       }
     }
 
@@ -442,8 +138,8 @@ await stopTimer(activeId);
       sensors={sensors}
       collisionDetection={closestCorners} 
       onDragStart={handleDragStart} 
-      onDragOver={handleDragOver} 
-      onDragEnd={handleDragEnd}
+      onDragOver={(event) => handleDragOver(event.active, event.over, lists, setLists)} 
+      onDragEnd={handleDragEndEvent}
     >
       <div className="flex gap-6 items-start overflow-x-auto h-full px-8 py-8 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
         {lists.map((list) => (
@@ -451,16 +147,28 @@ await stopTimer(activeId);
             key={list.id} 
             list={list} 
             tasks={list.tasks}
-            onAddTask={handleAddTask} 
-            onRenameList={handleRenameList} 
-            onDeleteList={handleDeleteList}
+            onAddTask={(listId, title) => taskManagement.handleAddTask(
+              listId, title, lists, setLists, createTask
+            )} 
+            onRenameList={(listId, newTitle) => listManagement.handleRenameList(
+              listId, newTitle, lists, setLists, updateListTitle
+            )} 
+            onDeleteList={(listId) => listManagement.handleDeleteList(
+              listId, lists, setLists, deleteList
+            )}
             onTaskClick={setSelectedTask}
           />
         ))}
 
         <div className="w-80 flex-shrink-0">
           {isAddingList ? (
-            <form onSubmit={handleAddList} className="bg-gray-100/50 border border-gray-200 rounded-xl p-3 flex flex-col gap-2 animate-in fade-in slide-in-from-left-4 duration-300">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              listManagement.handleAddList(
+                newListTitle, lists, setLists, setIsAddingList, setNewListTitle, boardId,
+                createList
+              );
+            }} className="bg-gray-100/50 border border-gray-200 rounded-xl p-3 flex flex-col gap-2 animate-in fade-in slide-in-from-left-4 duration-300">
               <input
                 autoFocus
                 className="w-full p-2 rounded-md border border-gray-200 focus:border-gray-500 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-white"
@@ -505,9 +213,15 @@ await stopTimer(activeId);
             task={selectedTask}
             isOpen={!!selectedTask}
             onClose={() => setSelectedTask(null)}
-            onSave={handleUpdateTask}
-            onDelete={handleDeleteTask}
-            onSubtasksChange={handleSubtasksChange}
+            onSave={(taskId, updates) => taskManagement.handleUpdateTask(
+              taskId, updates, lists, setLists, updateTask
+            )}
+            onDelete={(taskId) => taskManagement.handleDeleteTask(
+              taskId, lists, setLists, selectedTask, setSelectedTask, deleteTask
+            )}
+            onSubtasksChange={(parentId, newSubtasks) => taskManagement.handleSubtasksChange(
+              parentId, newSubtasks, lists, setLists
+            )}
           />
       )}
     </DndContext>

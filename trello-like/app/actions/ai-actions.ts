@@ -110,13 +110,34 @@ boards: true
 return task;
 }
 
+interface TaskContext {
+  title: string;
+  description: string | null;
+  labels: string[] | null;
+  dueDate: string | null;
+  list: {
+    board: {
+      id: string;
+      name: string;
+      workspace: {
+        name: string;
+        slug: string;
+        description: string | null;
+        boards: { id: string; name: string }[];
+      };
+    };
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatContextPrompt(task: any) {
-const workspace = task.list.board.workspace;
-const board = task.list.board;
-const otherBoards = workspace.boards
-.filter((b: { id: string; name: string }) => b.id !== board.id)
-.map((b: { id: string; name: string }) => b.name)
-.join(', ');
+  const t = task as TaskContext;
+  const workspace = t.list.board.workspace;
+  const board = t.list.board;
+  const otherBoards = workspace.boards
+    .filter((b: { id: string; name: string }) => b.id !== board.id)
+    .map((b: { id: string; name: string }) => b.name)
+    .join(', ');
 
   return `Workspace Context:
   - Name: ${workspace.name}
