@@ -21,7 +21,7 @@ export function toISOLocalDate(date: Date): string {
  * Handles Date objects, ISO strings, and snake_case database objects.
  * Prevents timezone shifting by parsing YYYY-MM-DD components directly from strings.
  */
-export function parseISOLocal(dateValue: Date | string | { startDate?: string; start_date?: string } | null): Date {
+export function parseISOLocal(dateValue: Date | string | number | { startDate?: string; start_date?: string } | null | undefined): Date {
   if (!dateValue) return new Date();
 
   // Handle Date objects

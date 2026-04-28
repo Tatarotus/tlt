@@ -4,7 +4,7 @@ import { sessions } from '@/db/schema';
 import { isNull, eq, and } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
-async function stopActiveSession(sessionId: string) {
+async function stopActiveSession(sessionId: number) {
   const [stopped] = await db.update(sessions).set({ endTime: new Date() }).where(eq(sessions.id, sessionId)).returning();
   const duration = stopped.startTime ? Math.floor((new Date().getTime() - new Date(stopped.startTime).getTime()) / 1000) : 0;
   return { ...stopped, duration };

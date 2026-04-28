@@ -7,6 +7,29 @@ import { getSession } from '@/lib/session';
 
 export type CategoryRange = 'today' | 'week' | 'month' | 'all';
 
+export interface SessionData {
+  id: number;
+  category: string;
+  startTime: Date;
+  endTime: Date | null;
+  duration: number;
+  userId: number;
+  categoryId: number | null;
+  cardId: string | null;
+  notes: string | null;
+  source: string;
+}
+
+export interface CategoryData {
+  id: number;
+  name: string;
+  parentId: number | null;
+  children?: CategoryData[];
+  totalDuration: number;
+  sessionCount: number;
+  sessions?: SessionData[];
+}
+
 interface InternalCategory {
   id: number;
   name: string;
