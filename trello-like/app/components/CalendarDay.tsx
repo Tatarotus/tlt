@@ -1,7 +1,6 @@
 "use client";
 import { toLocalMidnight, parseISOLocal, isDateInRange } from '@/lib/date-utils';
 import { getColorByName, HIGHLIGHT_COLORS } from '@/lib/highlight-colors';
-import { CalendarEvent } from './CalendarEvent';
 
 interface Highlight {
   id: string;
@@ -17,11 +16,11 @@ interface CalendarDayProps {
   selectionStart: Date | null;
   selectionEnd: Date | null;
   taskDots: { taskId: string; title: string; dueDate: string }[];
-  isDragging: boolean;
+  _isDragging: boolean;
   onMouseDown: (date: Date) => void;
   onMouseEnter: (date: Date) => void;
   onMouseUp: () => void;
-  onHighlightClick: (highlight: Highlight) => void;
+  onHighlightClick: (_highlight: Highlight) => void;
 }
 
 export function CalendarDay({
@@ -30,7 +29,7 @@ export function CalendarDay({
   selectionStart,
   selectionEnd,
   taskDots,
-  isDragging,
+  _isDragging,
   onMouseDown,
   onMouseEnter,
   onMouseUp,

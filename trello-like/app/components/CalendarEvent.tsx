@@ -12,8 +12,8 @@ interface Highlight {
 
 interface CalendarEventProps {
   highlight: Highlight;
-  onDelete: (id: string) => void;
-  onClick: (highlight: Highlight) => void;
+  onDelete: (_id: string) => void;
+  onClick: (_highlight: Highlight) => void;
 }
 
 export function CalendarEvent({ highlight, onDelete, onClick }: CalendarEventProps) {

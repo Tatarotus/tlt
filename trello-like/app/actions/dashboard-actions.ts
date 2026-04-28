@@ -7,104 +7,74 @@ import { getSession } from '@/lib/session';
 
 export type DashboardRange = 'today' | 'week' | 'month' | 'all';
 
-// eslint-disable-next-line max-statements
-export async function getDashboardData(range: DashboardRange = 'week') {
-const session = await getSession();
-if (!session) return { success: false, error: "Unauthorized" };
-
-try {
-const now = new Date();
-let startDate = new Date();
-
-if (range === 'today') {
-startDate.setHours(0, 0, 0, 0);
-} else if (range === 'week') {
-startDate.setDate(now.getDate() - 7);
-startDate.setHours(0, 0, 0, 0);
-} else if (range === 'month') {
-startDate.setMonth(now.getMonth() - 1);
-startDate.setHours(0, 0, 0, 0);
-} else {
-startDate = new Date(0); // All time
+function getStartDate(range: DashboardRange): Date {
+  const now = new Date();
+  const startDate = new Date();
+  if (range === 'today') {
+    startDate.setHours(0, 0, 0, 0);
+  } else if (range === 'week') {
+    startDate.setDate(now.getDate() - 7);
+    startDate.setHours(0, 0, 0, 0);
+  } else if (range === 'month') {
+    startDate.setMonth(now.getMonth() - 1);
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    return new Date(0);
+  }
+  return startDate;
 }
 
-// Fetch all sessions within range for charts and metrics
-const allSessions = await db.select().from(sessions)
-.where(
-and(
-gte(sessions.startTime, startDate),
-eq(sessions.userId, session.userId)
-)
-)
-.orderBy(desc(sessions.startTime));
+function calculateMetrics(allSessions: any[]) {
+  const now = new Date();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date();
+  weekStart.setDate(now.getDate() - 7);
+  weekStart.setHours(0, 0, 0, 0);
 
-    // Calculate Metrics
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const weekStart = new Date();
-    weekStart.setDate(now.getDate() - 7);
-    weekStart.setHours(0, 0, 0, 0);
+  let todayDuration = 0, weekDuration = 0;
+  const categoryCounts: Record<string, number> = {};
+  const categoryDurations: Record<string, number> = {};
 
-    let todayDuration = 0;
-    let weekDuration = 0;
-    const categoryCounts: Record<string, number> = {};
-    const categoryDurations: Record<string, number> = {};
+  allSessions.forEach(s => {
+    const start = new Date(s.startTime);
+    const end = s.endTime ? new Date(s.endTime) : now;
+    const duration = Math.max(0, end.getTime() - start.getTime());
 
-    allSessions.forEach(s => {
-      const start = new Date(s.startTime);
-      const end = s.endTime ? new Date(s.endTime) : new Date();
-      const duration = Math.max(0, end.getTime() - start.getTime());
+    if (start >= todayStart) todayDuration += duration;
+    if (start >= weekStart) weekDuration += duration;
 
-      if (start >= todayStart) todayDuration += duration;
-      if (start >= weekStart) weekDuration += duration;
+    categoryCounts[s.category] = (categoryCounts[s.category] || 0) + 1;
+    categoryDurations[s.category] = (categoryDurations[s.category] || 0) + duration;
+  });
 
-      categoryCounts[s.category] = (categoryCounts[s.category] || 0) + 1;
-      categoryDurations[s.category] = (categoryDurations[s.category] || 0) + duration;
-    });
+  const mostUsed = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+  return { todayDuration, weekDuration, mostUsed, categoryDurations };
+}
 
-    const mostUsedCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+export async function getDashboardData(range: DashboardRange = 'week') {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    const startDate = getStartDate(range);
+    const allSessions = await db.select().from(sessions)
+      .where(and(gte(sessions.startTime, startDate), eq(sessions.userId, session.userId)))
+      .orderBy(desc(sessions.startTime));
+
+    const { todayDuration, weekDuration, mostUsed, categoryDurations } = calculateMetrics(allSessions);
 
     const donutData = Object.entries(categoryDurations)
-      .map(([name, value]) => ({ 
-        name, 
-        value: Math.round(value / (1000 * 60 * 60) * 10) / 10
-      }))
+      .map(([name, value]) => ({ name, value: Math.round(value / (1000 * 60 * 60) * 10) / 10 }))
       .sort((a, b) => b.value - a.value);
-
-    // DAILY BAR DATA
-    const dailyData: Record<string, Record<string, number | string>> = {};
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(now.getDate() - (6 - i));
-      return d.toISOString().split('T')[0];
-    });
-
-    last7Days.forEach(date => { dailyData[date] = { date }; });
-
-    allSessions.forEach(s => {
-      const dateStr = new Date(s.startTime).toISOString().split('T')[0];
-      if (dailyData[dateStr]) {
-        const start = new Date(s.startTime);
-        const end = s.endTime ? new Date(s.endTime) : new Date();
-        const duration = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
-        dailyData[dateStr][s.category] = (Number(dailyData[dateStr][s.category] || 0)) + duration;
-      }
-    });
 
     return {
       success: true,
-      metrics: {
-        today: formatDuration(todayDuration),
-        week: formatDuration(weekDuration),
-        mostUsed: mostUsedCategory,
-        entries: allSessions.length
-      },
+      metrics: { today: formatDuration(todayDuration), week: formatDuration(weekDuration), mostUsed, entries: allSessions.length },
       donutData,
-      barData: Object.values(dailyData),
+      barData: getBarData(allSessions),
       recentLogs: allSessions.slice(0, 8).map(s => ({
-        id: s.id,
-        category: s.category,
-        startTime: s.startTime,
+        id: s.id, category: s.category, startTime: s.startTime,
         duration: s.endTime ? Math.floor((new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 1000) : 0,
         notes: s.notes
       })),
@@ -113,6 +83,27 @@ eq(sessions.userId, session.userId)
   } catch (_error) {
     return { success: false, error: "Failed to fetch dashboard data" };
   }
+}
+
+function getBarData(allSessions: any[]) {
+  const now = new Date();
+  const dailyData: Record<string, any> = {};
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(now.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
+  });
+
+  last7Days.forEach(date => { dailyData[date] = { date }; });
+  allSessions.forEach(s => {
+    const dateStr = new Date(s.startTime).toISOString().split('T')[0];
+    if (dailyData[dateStr]) {
+      const end = s.endTime ? new Date(s.endTime) : now;
+      const duration = Math.max(0, (end.getTime() - new Date(s.startTime).getTime()) / (1000 * 60 * 60));
+      dailyData[dateStr][s.category] = (Number(dailyData[dateStr][s.category] || 0)) + duration;
+    }
+  });
+  return Object.values(dailyData);
 }
 
 function formatDuration(ms: number) {

@@ -12,86 +12,58 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { ViewTabs } from "../../components/ViewTabs";
 
+function UnauthorizedView() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+      <h1 className="text-xl font-medium text-gray-900">Unauthorized</h1>
+      <Link href="/login" className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Login to continue</Link>
+    </div>
+  );
+}
+
+function NotFoundView() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+      <h1 className="text-xl font-medium text-gray-900">Workspace not found</h1>
+      <Link href="/" className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Go back to Workspaces</Link>
+    </div>
+  );
+}
+
 export default async function BoardsPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
   const session = await getSession();
   const { workspaceSlug } = await params;
-
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <h1 className="text-xl font-medium text-gray-900">Unauthorized</h1>
-        <Link href="/login" className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Login to continue</Link>
-      </div>
-    );
-  }
+  if (!session) return <UnauthorizedView />;
 
   const workspace = await db.query.workspaces.findFirst({
     where: and(eq(workspaces.slug, workspaceSlug), eq(workspaces.userId, session.userId)),
     with: { boards: true }
   });
-
-  if (!workspace) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <h1 className="text-xl font-medium text-gray-900">Workspace not found</h1>
-        <Link href="/" className="text-gray-500 hover:text-gray-900 mt-2 text-sm">Go back to Workspaces</Link>
-      </div>
-    );
-  }
+  if (!workspace) return <NotFoundView />;
 
   async function handleCreateBoard(formData: FormData) {
     "use server"
     const name = formData.get("name") as string;
-    if (!name) return;
-    await createBoard(name, workspace!.id);
-    revalidatePath(`/${workspaceSlug}/boards`);
+    if (name) { await createBoard(name, workspace!.id); revalidatePath(`/${workspaceSlug}/boards`); }
   }
 
   return (
     <main className="min-h-screen bg-gray-50 pb-24 font-sans">
-      <WorkspaceHeader
-        id={workspace.id}
-        name={workspace.name}
-        slug={workspace.slug}
-        description={workspace.description || ""}
-        backHref="/"
-        backLabel="All Workspaces"
-      >
+      <WorkspaceHeader id={workspace.id} name={workspace.name} slug={workspace.slug} description={workspace.description || ""} backHref="/" backLabel="All Workspaces">
         <ViewTabs workspaceSlug={workspaceSlug} currentView="kanban" />
       </WorkspaceHeader>
-
       <Container>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
           {workspace.boards.map((board) => (
-            <BoardCard
-              key={board.id}
-              id={board.id}
-              name={board.name}
-              href={`/${workspaceSlug}/${board.slug}`}
-              deleteAction={async () => {
-                "use server"
-                await deleteBoard(board.id);
-                revalidatePath(`/${workspaceSlug}/boards`);
-              }}
-              variant="board"
+            <BoardCard key={board.id} id={board.id} name={board.name} href={`/${workspaceSlug}/${board.slug}`} variant="board"
+              deleteAction={async () => { "use server"; await deleteBoard(board.id); revalidatePath(`/${workspaceSlug}/boards`); }}
             />
           ))}
-
           <div className="p-5 bg-white border border-gray-200 rounded-md flex flex-col justify-center min-h-[140px]">
             <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14m-7-7h14"/></svg>
-              New Board
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14m-7-7h14"/></svg>New Board
             </h2>
-            <form action={handleCreateBoard} className="flex flex-col gap-3">
-              <Input
-                name="name"
-                placeholder="Board name..."
-                required
-              />
-              <Button type="submit" fullWidth>
-                Create
-              </Button>
-            </form>
+            <form action={handleCreateBoard} className="flex flex-col gap-3"><Input name="name" placeholder="Board name..." required /><Button type="submit" fullWidth>Create</Button></form>
           </div>
         </div>
       </Container>

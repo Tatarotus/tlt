@@ -51,75 +51,40 @@ endDate: safeToISOString(finalEndDate),
   }
 }
 
+async function validateHighlight(body: any) {
+  const { workspaceSlug, title, color, startDate, endDate } = body;
+  if (!workspaceSlug || !title || !color || !startDate || !endDate) return 'Missing required fields';
+  if (title.length > 60) return 'Title must be 60 characters or less';
+  if (!isValidColor(color)) return 'Invalid color. Use colors from the highlight palette.';
+  const startValid = new Date(startDate), endValid = new Date(endDate);
+  if (isNaN(startValid.getTime()) || isNaN(endValid.getTime())) return 'Invalid date format';
+  if (startValid > endValid) return 'Start date must be before end date';
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const body = await request.json();
-    const { workspaceSlug, title, color, startDate, endDate } = body;
-
-if (!workspaceSlug || !title || !color || !startDate || !endDate) {
-return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-}
-
-if (title.length > 60) {
-return NextResponse.json({ error: 'Title must be 60 characters or less' }, { status: 400 });
-}
-
-// Validate color against curated palette
-if (!isValidColor(color)) {
-return NextResponse.json({ 
-error: 'Invalid color. Use colors from the highlight palette.',
-validColors: ['crimson', 'sunset', 'amber', 'emerald', 'ocean', 'indigo', 'violet', 'fuchsia', 'rose', 'teal', 'sky', 'slate']
-}, { status: 400 });
-}
+    const error = await validateHighlight(body);
+    if (error) return NextResponse.json({ error }, { status: 400 });
 
     const workspace = await db.query.workspaces.findFirst({
-      where: and(
-        eq(workspaces.slug, workspaceSlug),
-        eq(workspaces.userId, session.userId)
-      ),
+      where: and(eq(workspaces.slug, body.workspaceSlug), eq(workspaces.userId, session.userId)),
     });
+    if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
 
-    if (!workspace) {
-      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
-    }
-
-    const startValid = new Date(startDate);
-    const endValid = new Date(endDate);
-
-    if (isNaN(startValid.getTime()) || isNaN(endValid.getTime())) {
-      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
-    }
-
-    if (startValid > endValid) {
-      return NextResponse.json({ error: 'Start date must be before end date' }, { status: 400 });
-    }
-
-const [newHighlight] = await db.insert(calendarHighlights).values({
-id: crypto.randomUUID(),
-workspaceId: workspace.id,
-title,
-color,
-startDate: startDate,
-endDate: endDate,
-}).returning();
-
-// Use property names if they exist
-const finalStartDate = newHighlight.startDate;
-const finalEndDate = newHighlight.endDate;
+    const [newHighlight] = await db.insert(calendarHighlights).values({
+      id: crypto.randomUUID(), workspaceId: workspace.id, title: body.title, color: body.color, startDate: body.startDate, endDate: body.endDate,
+    }).returning();
 
     return NextResponse.json({ 
       success: true, 
-      highlight: {
-        ...newHighlight,
-        startDate: safeToISOString(finalStartDate),
-        endDate: safeToISOString(finalEndDate),
-      } 
+      highlight: { ...newHighlight, startDate: safeToISOString(newHighlight.startDate), endDate: safeToISOString(newHighlight.endDate) } 
     });
   } catch (error) {
-    console.error('Error creating calendar highlight:', error);
     return NextResponse.json({ error: 'Failed to create highlight' }, { status: 500 });
   }
 }

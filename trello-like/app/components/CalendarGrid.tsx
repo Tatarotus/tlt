@@ -1,6 +1,5 @@
 "use client";
 import { CalendarDay } from './CalendarDay';
-import { CalendarHeader } from './CalendarHeader';
 
 interface Highlight {
   id: string;
