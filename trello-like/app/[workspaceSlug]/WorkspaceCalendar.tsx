@@ -27,7 +27,9 @@ interface WorkspaceCalendarProps {
   initialHighlights: Highlight[];
 }
 
-async function navigateToBoard(title: string, workspaceSlug: string, router: any) {
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+
+async function navigateToBoard(title: string, workspaceSlug: string, router: AppRouterInstance) {
   try {
     const res = await fetch("/api/boards/navigate", {
       method: "POST",

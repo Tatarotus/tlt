@@ -27,7 +27,7 @@ function getStartDate(range: CategoryRange): Date {
   return startDate;
 }
 
-function groupCategories(sessionsWithDuration: any[]) {
+function groupCategories(sessionsWithDuration: { category: string; duration: number; [key: string]: any }[]) {
   const categoryMap = new Map<string, InternalCategory>();
   sessionsWithDuration.forEach(s => {
     const [mainCategory, subCategory] = s.category.split(':').map((p: string) => p.trim());
@@ -73,7 +73,7 @@ export async function getCategoryData(range: CategoryRange = 'week') {
     })).sort((a, b) => b.totalDuration - a.totalDuration);
 
     return { success: true, categories, totalDuration: sessionsWithDuration.reduce((sum, s) => sum + s.duration, 0), totalSessions: sessionsWithDuration.length };
-  } catch (error) {
+  } catch (_error) {
     return { success: false, error: "Failed to fetch category data" };
   }
 }

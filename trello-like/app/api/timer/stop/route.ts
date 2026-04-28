@@ -4,110 +4,24 @@ import { sessions } from '@/db/schema';
 import { isNull, eq, and } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
+async function stopActiveSession(sessionId: string) {
+  const [stopped] = await db.update(sessions).set({ endTime: new Date() }).where(eq(sessions.id, sessionId)).returning();
+  const duration = stopped.startTime ? Math.floor((new Date().getTime() - new Date(stopped.startTime).getTime()) / 1000) : 0;
+  return { ...stopped, duration };
+}
+
 export async function POST(request: NextRequest) {
-try {
-const session = await getSession();
-if (!session?.userId) {
-return NextResponse.json(
-{ error: 'Unauthorized' },
-{ status: 401 }
-);
-}
+  try {
+    const session = await getSession();
+    if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { cardId } = await request.json();
 
-const body = await request.json();
-const { cardId } = body;
+    const active = await db.select().from(sessions).where(and(cardId ? eq(sessions.cardId, cardId) : isNull(sessions.endTime), isNull(sessions.endTime), eq(sessions.userId, session.userId))).limit(1);
+    if (!active.length) return NextResponse.json({ error: 'No active timer found' }, { status: 404 });
 
-const activeForCard = cardId
-? await db
-.select()
-.from(sessions)
-.where(
-and(
-eq(sessions.cardId, cardId),
-isNull(sessions.endTime),
-eq(sessions.userId, session.userId)
-)
-)
-.limit(1)
-: null;
-
-if (activeForCard && activeForCard.length > 0) {
-const [stopped] = await db
-.update(sessions)
-.set({ endTime: new Date() })
-.where(eq(sessions.id, activeForCard[0].id))
-.returning();
-
-const duration = stopped.startTime
-? Math.floor(
-(new Date().getTime() - new Date(stopped.startTime).getTime()) / 1000
-)
-: 0;
-
-return NextResponse.json({
-success: true,
-session: {
-id: stopped.id,
-category: stopped.category,
-startTime: stopped.startTime,
-endTime: stopped.endTime,
-notes: stopped.notes,
-cardId: stopped.cardId,
-source: stopped.source,
-duration,
-},
-});
-}
-
-const activeSessions = await db
-.select()
-.from(sessions)
-.where(
-and(
-isNull(sessions.endTime),
-eq(sessions.userId, session.userId)
-)
-)
-.limit(1);
-
-if (activeSessions.length === 0) {
-return NextResponse.json(
-{ error: 'No active timer found' },
-{ status: 404 }
-);
-}
-
-const active = activeSessions[0];
-const [stopped] = await db
-.update(sessions)
-.set({ endTime: new Date() })
-.where(eq(sessions.id, active.id))
-.returning();
-
-const duration = stopped.startTime
-? Math.floor(
-(new Date().getTime() - new Date(stopped.startTime).getTime()) / 1000
-)
-: 0;
-
-return NextResponse.json({
-success: true,
-session: {
-id: stopped.id,
-category: stopped.category,
-startTime: stopped.startTime,
-endTime: stopped.endTime,
-notes: stopped.notes,
-cardId: stopped.cardId,
-source: stopped.source,
-duration,
-},
-});
-} catch (error) {
-console.error('Error stopping timer:', error);
-return NextResponse.json(
-{ error: 'Failed to stop timer' },
-{ status: 500 }
-);
-}
+    const stopped = await stopActiveSession(active[0].id);
+    return NextResponse.json({ success: true, session: stopped });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to stop timer' }, { status: 500 });
+  }
 }

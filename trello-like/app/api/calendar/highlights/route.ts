@@ -55,11 +55,10 @@ async function validateHighlight(body: any) {
   const { workspaceSlug, title, color, startDate, endDate } = body;
   if (!workspaceSlug || !title || !color || !startDate || !endDate) return 'Missing required fields';
   if (title.length > 60) return 'Title must be 60 characters or less';
-  if (!isValidColor(color)) return 'Invalid color. Use colors from the highlight palette.';
-  const startValid = new Date(startDate), endValid = new Date(endDate);
-  if (isNaN(startValid.getTime()) || isNaN(endValid.getTime())) return 'Invalid date format';
-  if (startValid > endValid) return 'Start date must be before end date';
-  return null;
+  if (!isValidColor(color)) return 'Invalid color.';
+  const s = new Date(startDate), e = new Date(endDate);
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 'Invalid date format';
+  return s > e ? 'Start date must be before end date' : null;
 }
 
 export async function POST(request: NextRequest) {

@@ -1,9 +1,10 @@
 import { db } from "@/db";
-import { boards, workspaces } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { boards, workspaces, tasks, lists as listsTable } from "@/db/schema";
+import { eq, and, isNull, asc } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import KanbanBoard from "@/app/components/KanbanBoard";
+import { Task } from "@/lib/types";
 
 function BoardHeader({ boardName, workspaceName }: { boardName: string; workspaceName: string }) {
   return (
@@ -28,8 +29,14 @@ export default async function BoardPage({ params }: { params: Promise<{ workspac
     where: and(eq(boards.slug, boardSlug), eq(boards.workspaceId, workspace.id)),
     with: {
       lists: {
-        with: { tasks: { where: (t: any, { isNull }: any) => isNull(t.parentId), with: { children: true }, orderBy: (t: any, { asc }: any) => [asc(t.order)] } },
-        orderBy: (l: any, { asc }: any) => [asc(l.order)]
+        with: {
+          tasks: {
+            where: isNull(tasks.parentId),
+            with: { children: true },
+            orderBy: [asc(tasks.order)]
+          }
+        },
+        orderBy: [asc(listsTable.order)]
       },
     },
   });
