@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { calendarHighlights } from '@/db/schema';
+import { calendarHighlights, workspaces } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
+
+interface GetUpdatesBody {
+	title?: string;
+	color?: string;
+	startDate?: string;
+	endDate?: string;
+}
+
+interface Updates {
+	updatedAt: Date;
+	title?: string;
+	color?: string;
+	startDate?: string;
+	endDate?: string;
+}
 
 export async function GET(
   request: NextRequest,
@@ -25,8 +40,7 @@ export async function GET(
       return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((highlight.workspace as any).userId !== session.userId) {
+	if ((highlight.workspace as typeof workspaces.$inferSelect).userId !== session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -36,9 +50,9 @@ export async function GET(
   }
 }
 
-function getUpdates(body: any) {
-  const { title, color, startDate, endDate } = body;
-  const updates: any = { updatedAt: new Date() };
+function getUpdates(body: GetUpdatesBody) {
+	const { title, color, startDate, endDate } = body;
+	const updates: Updates = { updatedAt: new Date() };
   if (title !== undefined) {
     if (title.length > 60) throw new Error('Title must be 60 characters or less');
     updates.title = title;
@@ -67,13 +81,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const existingHighlight = await db.query.calendarHighlights.findFirst({ where: eq(calendarHighlights.id, id), with: { workspace: true } });
     if (!existingHighlight) return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
-    if ((existingHighlight.workspace as any).userId !== session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+	if ((existingHighlight.workspace as typeof workspaces.$inferSelect).userId !== session.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
     const updates = getUpdates(await request.json());
     const [updatedHighlight] = await db.update(calendarHighlights).set(updates).where(eq(calendarHighlights.id, id)).returning();
     return NextResponse.json({ success: true, highlight: updatedHighlight });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to update highlight' }, { status: 400 });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Failed to update highlight';
+		return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
@@ -98,8 +113,7 @@ if (!existingHighlight) {
 return NextResponse.json({ error: 'Highlight not found' }, { status: 404 });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-if ((existingHighlight.workspace as any).userId !== session.userId) {
+	if ((existingHighlight.workspace as typeof workspaces.$inferSelect).userId !== session.userId) {
 return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 }
 

@@ -11,13 +11,15 @@ interface CategoryWithChildren extends CategoryDataType {
   sessions?: SessionData[];
 }
 
+interface CategoryDashboardData {
+  categories: CategoryWithChildren[];
+  totalDuration: number;
+  totalSessions: number;
+}
+
 export function CategoryDashboard() {
   const [range, setRange] = useState<CategoryRange>('week');
-  const [data, setData] = useState<{
-    categories: CategoryWithChildren[];
-    totalDuration: number;
-    totalSessions: number;
-  } | null>(null);
+  const [data, setData] = useState<CategoryDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +27,11 @@ export function CategoryDashboard() {
       setLoading(true);
       const res = await getCategoryData(range);
       if (res.success && res.categories) {
-        setData(res as any);
+        setData({
+          categories: res.categories as unknown as CategoryWithChildren[],
+          totalDuration: res.totalDuration,
+          totalSessions: res.totalSessions,
+        });
       }
       setLoading(false);
     }

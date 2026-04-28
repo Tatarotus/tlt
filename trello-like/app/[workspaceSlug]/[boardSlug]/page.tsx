@@ -4,7 +4,7 @@ import { eq, and, isNull, asc } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import KanbanBoard from "@/app/components/KanbanBoard";
-import { Task } from "@/lib/types";
+import type { List } from "@/lib/types";
 
 function BoardHeader({ boardName, workspaceName }: { boardName: string; workspaceName: string }) {
   return (
@@ -45,9 +45,9 @@ export default async function BoardPage({ params }: { params: Promise<{ workspac
   return (
     <div className="flex-1 flex flex-col h-full">
       <BoardHeader boardName={board.name} workspaceName={workspace.name} />
-      <div className="flex-1 overflow-hidden">
-        <KanbanBoard initialLists={board.lists as any} boardId={board.id} />
-      </div>
+		<div className="flex-1 overflow-hidden">
+			<KanbanBoard initialLists={board.lists as List[]} boardId={board.id} />
+		</div>
     </div>
   );
 }

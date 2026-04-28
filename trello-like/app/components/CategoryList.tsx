@@ -19,19 +19,19 @@ interface CategoryItemProps {
   index: number;
 }
 
+function formatDuration(ms: number): string {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  return `${hours}h ${minutes}m`;
+}
+
+function formatTime(date: Date): string {
+  return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 function CategoryItem({ category, index }: CategoryItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const color = COLORS[index % COLORS.length];
-
-  const formatDuration = (ms: number): string => {
-    const hours = Math.floor(ms / (1000 * 60 * 60));
-    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
-  };
-
-  const formatTime = (date: Date): string => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden mb-3">
@@ -100,7 +100,7 @@ export function CategoryList({ categories }: CategoryListProps) {
       </h3>
       {categories && categories.length > 0 ? (
         <div className="space-y-3 flex-1 overflow-y-auto scrollbar-thin pr-2 max-h-[600px]">
-          {categories.map((category: CategoryWithChildren, index: number) => (
+          {categories?.map((category, index) => (
             <CategoryItem
               key={category.name}
               category={category}

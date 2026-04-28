@@ -5,6 +5,19 @@ import { sessions } from '@/db/schema';
 import { desc, gte, and, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
+interface SessionWithId {
+	id: number;
+	category: string;
+	categoryId: number | null;
+	userId: string;
+	startTime: Date;
+	endTime: Date | null;
+	notes: string | null;
+	cardId: string | null;
+	source: string;
+	createdAt: Date | null;
+}
+
 export type DashboardRange = 'today' | 'week' | 'month' | 'all';
 
 function getStartDate(range: DashboardRange): Date {
@@ -24,7 +37,7 @@ function getStartDate(range: DashboardRange): Date {
   return startDate;
 }
 
-function calculateMetrics(allSessions: any[]) {
+function calculateMetrics(allSessions: SessionWithId[]) {
   const now = new Date();
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -85,16 +98,16 @@ export async function getDashboardData(range: DashboardRange = 'week') {
   }
 }
 
-function getBarData(allSessions: any[]) {
-  const now = new Date();
-  const dailyData: Record<string, any> = {};
+function getBarData(allSessions: SessionWithId[]) {
+	const now = new Date();
+	const dailyData: Record<string, Record<string, number>> = {};
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(now.getDate() - (6 - i));
     return d.toISOString().split('T')[0];
   });
 
-  last7Days.forEach(date => { dailyData[date] = { date }; });
+	last7Days.forEach(date => { dailyData[date] = { date: 0 }; });
   allSessions.forEach(s => {
     const dateStr = new Date(s.startTime).toISOString().split('T')[0];
     if (dailyData[dateStr]) {

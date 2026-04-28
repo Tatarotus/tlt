@@ -50,7 +50,8 @@ function getStartDate(range: CategoryRange): Date {
   return startDate;
 }
 
-function groupCategories(sessionsWithDuration: { category: string; duration: number; [key: string]: any }[]) {
+interface SessionWithDuration { category: string; duration: number; startTime: Date; endTime?: Date | null; [key: string]: unknown; }
+function groupCategories(sessionsWithDuration: SessionWithDuration[]) {
   const categoryMap = new Map<string, InternalCategory>();
   sessionsWithDuration.forEach(s => {
     const [mainCategory, subCategory] = s.category.split(':').map((p: string) => p.trim());

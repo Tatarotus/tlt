@@ -21,6 +21,80 @@ interface CalendarHighlightProps {
   taskDots?: { taskId: string; title: string; dueDate: string }[];
 }
 
+function renderRightPanel({
+  currentYear,
+  selectedColor,
+  highlightName,
+  selectionStart,
+  selectionEnd,
+  isCreatingHighlight,
+  createError,
+  isColorPickerOpen,
+  highlights,
+  onSelectedColorChange,
+  onHighlightNameChange,
+  onIsCreatingHighlightChange,
+  onCreateHighlight,
+  onIsColorPickerOpenChange,
+  onDeleteHighlight,
+  onHighlightClick,
+}: {
+  currentYear: number;
+  selectedColor: string;
+  highlightName: string;
+  selectionStart: Date | null;
+  selectionEnd: Date | null;
+  isCreatingHighlight: boolean;
+  createError: string | null;
+  isColorPickerOpen: boolean;
+  highlights: Highlight[];
+  onSelectedColorChange: (color: string) => void;
+  onHighlightNameChange: (name: string) => void;
+  onIsCreatingHighlightChange: (creating: boolean) => void;
+  onCreateHighlight: () => void;
+  onIsColorPickerOpenChange: (open: boolean) => void;
+  onDeleteHighlight: (id: string) => void;
+  onHighlightClick: (highlight: Highlight) => void;
+}) {
+  return (
+    <div className="w-72 border-l border-gray-200 bg-white p-4 flex flex-col h-full">
+      <CalendarHeader
+        currentYear={currentYear}
+        selectedColor={selectedColor}
+        highlightName={highlightName}
+        selectionStart={selectionStart}
+        selectionEnd={selectionEnd}
+        isCreatingHighlight={isCreatingHighlight}
+        createError={createError}
+        isColorPickerOpen={isColorPickerOpen}
+        onSelectedColorChange={onSelectedColorChange}
+        onHighlightNameChange={onHighlightNameChange}
+        onIsCreatingHighlightChange={onIsCreatingHighlightChange}
+        onCreateHighlight={onCreateHighlight}
+        onIsColorPickerOpenChange={onIsColorPickerOpenChange}
+      />
+
+      <div className="flex-1 overflow-y-auto space-y-2">
+        {highlights
+          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+          .map((h) => (
+            <CalendarEvent
+              key={h.id}
+              highlight={h}
+              onDelete={onDeleteHighlight}
+              onClick={onHighlightClick}
+            />
+          ))}
+        {highlights.length === 0 && (
+          <div className="text-xs text-gray-400 text-center py-8">
+            No highlights yet.<br />Drag on the calendar to create one.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CalendarView({
   highlights,
   workspaceSlug,
@@ -117,44 +191,6 @@ export function CalendarView({
     return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
   }, []);
 
-  const renderRightPanel = () => (
-    <div className="w-72 border-l border-gray-200 bg-white p-4 flex flex-col h-full">
-      <CalendarHeader
-        currentYear={currentYear}
-        selectedColor={selectedColor}
-        highlightName={highlightName}
-        selectionStart={selectionStart}
-        selectionEnd={selectionEnd}
-        isCreatingHighlight={isCreatingHighlight}
-        createError={createError}
-        isColorPickerOpen={isColorPickerOpen}
-        onSelectedColorChange={setSelectedColor}
-        onHighlightNameChange={setHighlightName}
-        onIsCreatingHighlightChange={setIsCreatingHighlight}
-        onCreateHighlight={handleCreateHighlight}
-        onIsColorPickerOpenChange={setIsColorPickerOpen}
-      />
-
-      <div className="flex-1 overflow-y-auto space-y-2">
-        {highlights
-          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-          .map((h) => (
-            <CalendarEvent
-              key={h.id}
-              highlight={h}
-              onDelete={handleDeleteHighlight}
-              onClick={onHighlightClick}
-            />
-          ))}
-        {highlights.length === 0 && (
-          <div className="text-xs text-gray-400 text-center py-8">
-            No highlights yet.<br />Drag on the calendar to create one.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex h-[calc(100vh-140px)]">
       <CalendarGrid
@@ -169,7 +205,24 @@ export function CalendarView({
         onMouseUp={handleMouseUp}
         onHighlightClick={onHighlightClick}
       />
-      {renderRightPanel()}
+      {renderRightPanel({
+        currentYear,
+        selectedColor,
+        highlightName,
+        selectionStart,
+        selectionEnd,
+        isCreatingHighlight,
+        createError,
+        isColorPickerOpen,
+        highlights,
+        onSelectedColorChange: setSelectedColor,
+        onHighlightNameChange: setHighlightName,
+        onIsCreatingHighlightChange: setIsCreatingHighlight,
+        onCreateHighlight: handleCreateHighlight,
+        onIsColorPickerOpenChange: setIsColorPickerOpen,
+        onDeleteHighlight: handleDeleteHighlight,
+        onHighlightClick,
+      })}
     </div>
   );
 }

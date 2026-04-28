@@ -51,7 +51,8 @@ endDate: safeToISOString(finalEndDate),
   }
 }
 
-async function validateHighlight(body: any) {
+interface ValidateHighlightBody { workspaceSlug: string; title: string; color: string; startDate: string; endDate: string; }
+async function validateHighlight(body: ValidateHighlightBody) {
   const { workspaceSlug, title, color, startDate, endDate } = body;
   if (!workspaceSlug || !title || !color || !startDate || !endDate) return 'Missing required fields';
   if (title.length > 60) return 'Title must be 60 characters or less';

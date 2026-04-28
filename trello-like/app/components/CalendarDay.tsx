@@ -33,21 +33,27 @@ export function CalendarDay({
 }: CalendarDayProps) {
   if (!date) return <div />;
   const isSameDay = (d1: Date, d2: Date) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
-  const d = toLocalMidnight(date), range = getSelectionRange(selectionStart, selectionEnd);
+  const d = toLocalMidnight(date);
+  const range = getSelectionRange(selectionStart, selectionEnd);
   const dayHighlights = highlights.filter((h) => isDateInRange(d, parseISOLocal(h.startDate), parseISOLocal(h.endDate)));
   const inSelection = range ? isDateInRange(date, range.s, range.e) : false;
   const taskDotsForDay = taskDots.filter((t) => isSameDay(new Date(t.dueDate), date));
-  const hasHighlight = dayHighlights.length > 0, primary = dayHighlights[0], isToday = isSameDay(date, new Date());
+  const hasHighlight = dayHighlights.length > 0;
+  const primary = dayHighlights[0];
+  const isToday = isSameDay(date, new Date());
   const color = hasHighlight ? (getColorByName(primary.color) || HIGHLIGHT_COLORS[0]) : null;
+  const highlightClasses = color ? `${color.bg} ${inSelection ? 'ring-2 ring-offset-1 ' + color.ring : ''}` : 'hover:bg-gray-50';
+  const selectionClasses = inSelection && !color ? 'bg-blue-50 ring-2 ring-blue-400' : '';
+  const todayClasses = isToday && !color && !inSelection ? 'ring-1 ring-gray-300' : '';
+  const textClasses = color ? color.text : 'text-gray-600';
+  const fontWeight = isToday ? 'font-bold' : '';
 
   return (
     <div
-      className={`relative h-7 flex items-center justify-center cursor-pointer rounded-sm transition-all duration-100
-        ${color ? `${color.bg} ${inSelection ? 'ring-2 ring-offset-1 ' + color.ring : ''}` : 'hover:bg-gray-50'}
-        ${inSelection && !color ? 'bg-blue-50 ring-2 ring-blue-400' : ''} ${isToday && !color && !inSelection ? 'ring-1 ring-gray-300' : ''}`}
+      className={`relative h-7 flex items-center justify-center cursor-pointer rounded-sm transition-all duration-100 ${highlightClasses} ${selectionClasses} ${todayClasses}`}
       onMouseDown={() => onMouseDown(date)} onMouseEnter={() => onMouseEnter(date)} onMouseUp={onMouseUp} onClick={() => hasHighlight && onHighlightClick(primary)}
     >
-      <span className={`${color ? color.text : 'text-gray-600'} ${isToday ? 'font-bold' : ''}`}>{date.getDate()}</span>
+      <span className={`${textClasses} ${fontWeight}`}>{date.getDate()}</span>
       {taskDotsForDay.length > 0 && (
         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
           {taskDotsForDay.slice(0, 3).map((t, i) => <div key={i} className="w-1 h-1 rounded-full bg-gray-500" title={t.title} />)}

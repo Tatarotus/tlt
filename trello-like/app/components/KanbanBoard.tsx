@@ -39,18 +39,74 @@ const dropAnimation: DropAnimation = {
   }),
 };
 
+function syncListOrder(listId: string, listTasks: Task[]) {
+  const updatedTasks = listTasks.map((task, index) => ({
+    id: task.id,
+    order: index,
+    listId
+  }));
+  return reorderTasks(updatedTasks);
+}
+
+async function handleDragEnd(event: DragEndEvent, lists: List[], setLists: React.Dispatch<React.SetStateAction<List[]>>, stopTimer: (cardId: string) => Promise<unknown>, activeTimer: { cardId: string | null } | null) {
+  const { active, over } = event;
+  const activeId = String(active.id);
+  const overId = over ? String(over.id) : null;
+
+  if (!overId) {
+    return;
+  }
+
+  const activeContainer = findContainer(activeId, lists);
+  const overContainer = findContainer(overId, lists);
+
+  if (!activeContainer || !overContainer) {
+    return;
+  }
+
+  const activeListIndex = lists.findIndex((l) => l.id === activeContainer);
+  const overListIndex = lists.findIndex((l) => l.id === overContainer);
+
+  if (activeListIndex === -1 || overListIndex === -1) {
+    return;
+  }
+
+  const activeIndex = lists[activeListIndex].tasks.findIndex((t) => t.id === activeId);
+  const overIndex = lists[overListIndex].tasks.findIndex((t) => t.id === overId);
+
+  const newLists = [...lists];
+
+  if (activeContainer === overContainer) {
+    if (activeIndex !== overIndex) {
+      newLists[activeListIndex] = {
+        ...newLists[activeListIndex],
+        tasks: arrayMove(newLists[activeListIndex].tasks, activeIndex, overIndex)
+      };
+      setLists(newLists);
+      await syncListOrder(activeContainer, newLists[activeListIndex].tasks);
+    }
+  } else {
+    const destList = lists.find((l) => l.id === overContainer);
+    if (destList) {
+      await syncListOrder(overContainer, destList.tasks);
+
+      const normalizedTitle = destList.title.toLowerCase();
+      if (normalizedTitle === "done" && activeTimer?.cardId === activeId) {
+        await stopTimer(activeId);
+      }
+    }
+  }
+}
+
 export default function KanbanBoard({ initialLists, boardId }: { initialLists: List[], boardId: string }) {
   const [lists, setLists] = useState<List[]>(initialLists);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  
+
   const { sensors, setIsAddingList, isAddingList, newListTitle, setNewListTitle } = useKanbanBoard();
-  
-  const { 
-    stopTimer, 
-    activeTimer 
-  } = useTimer();
+
+  const { stopTimer, activeTimer } = useTimer();
 
   useEffect(() => {
     setIsMounted(true);
@@ -66,68 +122,8 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
     if (task) setActiveTask(task);
   };
 
-  const syncListOrder = async (listId: string, listTasks: Task[]) => {
-    const updatedTasks = listTasks.map((task, index) => ({
-      id: task.id,
-      order: index,
-      listId
-    }));
-    await reorderTasks(updatedTasks);
-  };
-
-  // eslint-disable-next-line max-statements
   const handleDragEndEvent = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    const activeId = String(active.id);
-    const overId = over ? String(over.id) : null;
-    
-    if (!overId) {
-        setActiveTask(null);
-        return;
-    }
-
-    const activeContainer = findContainer(activeId, lists);
-    const overContainer = findContainer(overId, lists);
-
-    if (!activeContainer || !overContainer) {
-      setActiveTask(null);
-      return;
-    }
-
-    const activeListIndex = lists.findIndex((l) => l.id === activeContainer);
-    const overListIndex = lists.findIndex((l) => l.id === overContainer);
-
-    if (activeListIndex === -1 || overListIndex === -1) {
-      setActiveTask(null);
-      return;
-    }
-
-    const activeIndex = lists[activeListIndex].tasks.findIndex((t) => t.id === activeId);
-    const overIndex = lists[overListIndex].tasks.findIndex((t) => t.id === overId);
-
-    const newLists = [...lists];
-
-    if (activeContainer === overContainer) {
-      if (activeIndex !== overIndex) {
-        newLists[activeListIndex] = {
-          ...newLists[activeListIndex],
-          tasks: arrayMove(newLists[activeListIndex].tasks, activeIndex, overIndex)
-        };
-        setLists(newLists);
-        await syncListOrder(activeContainer, newLists[activeListIndex].tasks);
-      }
-    } else {
-      const destList = lists.find((l) => l.id === overContainer);
-      if (destList) {
-        await syncListOrder(overContainer, destList.tasks);
-        
-        const normalizedTitle = destList.title.toLowerCase();
-        if (normalizedTitle === "done" && activeTimer?.cardId === activeId) {
-          await stopTimer(activeId);
-        }
-      }
-    }
-
+    await handleDragEnd(event, lists, setLists, stopTimer, activeTimer);
     setActiveTask(null);
   };
 
