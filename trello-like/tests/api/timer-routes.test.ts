@@ -1,3 +1,6 @@
+// Suppress console.error in tests to avoid noise from intentional error tests
+globalThis.console.error = () => {};
+
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { db } from '@/db';
 import { authorize, unauthorize } from './__helpers__/mocks';
