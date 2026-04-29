@@ -202,25 +202,6 @@ return { success: false, error: error instanceof Error ? error.message : 'Unknow
 }
 }
 
-export async function aiWriteStatusUpdate(taskId: string) {
-const session = await getSession();
-if (!session) return { success: false, error: "Unauthorized" };
-
-try {
-const task = await getTaskContext(taskId);
-if (!task) return { success: false, error: "Task not found" };
-
-const systemPrompt = `Write a professional status update. Use the workspace and board context to make it relevant to the project. Respond with NOTHING except JSON: { "update": "markdown text" }`;
-const userPrompt = formatContextPrompt(task);
-const response = await callAI(systemPrompt, userPrompt);
-const data = extractJSON(response);
-
-return { success: true, update: data.update };
-} catch (error: unknown) {
-return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-}
-}
-
 export async function aiSuggestTags(taskId: string) {
 const session = await getSession();
 if (!session) return { success: false, error: "Unauthorized" };

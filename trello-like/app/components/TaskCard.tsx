@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTimer } from '@/lib/timer-context';
 import { useEffect, useState } from 'react';
+import { parseLabel } from '@/lib/labels';
 
 interface Task {
   id: string;
@@ -21,14 +22,6 @@ interface TaskCardProps {
   task: Task;
   onClick: () => void;
 }
-
-const LABEL_COLORS: Record<string, string> = {
-  'Green': 'bg-green-500',
-  'Yellow': 'bg-yellow-500',
-  'Red': 'bg-red-500',
-  'Blue': 'bg-blue-500',
-  'Purple': 'bg-purple-500',
-};
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -119,7 +112,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
             {task.labels.map((label) => (
               <div
                 key={label}
-                className={`${LABEL_COLORS[label] || 'bg-gray-400'} h-1.5 w-8 rounded-full`}
+                className={`${parseLabel(label).colorClass} h-1.5 w-8 rounded-full`}
               />
             ))}
           </div>
