@@ -1,6 +1,5 @@
 "use client";
 import { useState } from 'react';
-import { Button } from './ui/Button';
 import { Task } from '@/lib/types';
 import { TimerButton } from './TimerButton';
 import { createColoredLabel, LABEL_COLOR_OPTIONS, LabelColorName, parseLabel } from '@/lib/labels';
