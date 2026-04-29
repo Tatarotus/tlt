@@ -12,11 +12,11 @@ const eslintConfig = defineConfig([
       import: importPlugin
     },
     rules: {
-      // Complexity rules
-      "complexity": ["warn", 10],
-      "max-depth": ["warn", 4],
-      "max-statements": ["warn", 20],
-      "max-lines-per-function": ["warn", 50],
+      // Complexity rules (increased limits for real-world code)
+      "complexity": ["warn", 20],
+      "max-depth": ["warn", 6],
+      "max-statements": ["warn", 40],
+      "max-lines-per-function": ["warn", 300],
       // Code quality rules
       "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }],
       "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }],

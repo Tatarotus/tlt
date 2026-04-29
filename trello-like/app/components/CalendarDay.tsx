@@ -17,8 +17,8 @@ interface CalendarDayProps {
   selectionEnd: Date | null;
   taskDots: { taskId: string; title: string; dueDate: string }[];
   _isDragging: boolean;
-  onMouseDown: (date: Date) => void;
-  onMouseEnter: (date: Date) => void;
+  onMouseDown: (_date: Date) => void;
+  onMouseEnter: (_date: Date) => void;
   onMouseUp: () => void;
   onHighlightClick: (_highlight: Highlight) => void;
 }

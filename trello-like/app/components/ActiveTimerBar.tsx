@@ -11,7 +11,14 @@ function formatDuration(seconds: number): string {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-function TimerDisplay({ activeTimer, elapsed, loading, onStop }: any) {
+interface TimerDisplayProps {
+  activeTimer: { category: string; notes?: string | null; startTime: string };
+  elapsed: number;
+  loading: boolean;
+  onStop: () => Promise<unknown>;
+}
+
+function TimerDisplay({ activeTimer, elapsed, loading, onStop }: TimerDisplayProps) {
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
       <div className="flex items-center gap-4">

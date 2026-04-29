@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // Script to generate test cases based on survived mutations
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 // Function to generate test cases for survived mutations
 function generateTestCasesFromMutations() {

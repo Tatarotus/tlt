@@ -1,7 +1,5 @@
 import 'dotenv/config';
 import { db } from '../db';
-import { tasks } from '../db/schema';
-import { eq } from 'drizzle-orm';
 
 async function testAiContext() {
   console.log("Testing AI Context fetching...");

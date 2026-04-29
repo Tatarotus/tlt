@@ -1,17 +1,8 @@
 "use client";
-import { useState } from 'react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { HIGHLIGHT_COLORS, getColorByName } from '@/lib/highlight-colors';
-import { toLocalMidnight, toISOLocalDate, parseISOLocal, isDateInRange } from '@/lib/date-utils';
-
-interface Highlight {
-  id: string;
-  title: string;
-  color: string;
-  startDate: string;
-  endDate: string;
-}
+import { toLocalMidnight } from '@/lib/date-utils';
 
 interface CalendarHeaderProps {
   currentYear: number;
@@ -22,14 +13,21 @@ interface CalendarHeaderProps {
   isCreatingHighlight: boolean;
   createError: string | null;
   isColorPickerOpen: boolean;
-  onSelectedColorChange: (color: string) => void;
-  onHighlightNameChange: (name: string) => void;
-  onIsCreatingHighlightChange: (value: boolean) => void;
+  onSelectedColorChange: (_color: string) => void;
+  onHighlightNameChange: (_name: string) => void;
+  onIsCreatingHighlightChange: (_value: boolean) => void;
   onCreateHighlight: () => void;
-  onIsColorPickerOpenChange: (value: boolean) => void;
+  onIsColorPickerOpenChange: (_value: boolean) => void;
 }
 
-function ColorSelector({ selectedColor, onSelectedColorChange, isColorPickerOpen, onIsColorPickerOpenChange }: any) {
+interface ColorSelectorProps {
+  selectedColor: string;
+  onSelectedColorChange: (_color: string) => void;
+  isColorPickerOpen: boolean;
+  onIsColorPickerOpenChange: (_value: boolean) => void;
+}
+
+function ColorSelector({ selectedColor, onSelectedColorChange, isColorPickerOpen, onIsColorPickerOpenChange }: ColorSelectorProps) {
   const getColorClasses = (colorName: string) => getColorByName(colorName) || HIGHLIGHT_COLORS[0];
   return (
     <div className="flex flex-wrap gap-1.5 items-center">
@@ -48,7 +46,18 @@ function ColorSelector({ selectedColor, onSelectedColorChange, isColorPickerOpen
   );
 }
 
-function DateSelectionForm({ selectionStart, selectionEnd, highlightName, onHighlightNameChange, onCreateHighlight, createError, isCreatingHighlight }: any) {
+interface DateSelectionFormProps {
+  selectionStart: Date | null;
+  selectionEnd: Date | null;
+  highlightName: string;
+  onHighlightNameChange: (_name: string) => void;
+  onCreateHighlight: () => void;
+  createError: string | null;
+  isCreatingHighlight: boolean;
+}
+
+function DateSelectionForm({ selectionStart, selectionEnd, highlightName, onHighlightNameChange, onCreateHighlight, createError, isCreatingHighlight }: DateSelectionFormProps) {
+  if (!selectionStart || !selectionEnd) return null;
   const s = selectionStart.getTime() < selectionEnd.getTime() ? selectionStart : selectionEnd;
   const e = selectionStart.getTime() < selectionEnd.getTime() ? selectionEnd : selectionStart;
   return (

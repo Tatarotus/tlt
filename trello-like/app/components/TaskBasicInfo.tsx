@@ -8,14 +8,13 @@ interface TaskBasicInfoProps {
   description: string;
   dueDate: string;
   completed: boolean;
-  onTitleChange: (title: string) => void;
-  onDescriptionChange: (description: string) => void;
-  onDueDateChange: (dueDate: string) => void;
-  onCompletedChange: (e: React.MouseEvent) => void;
+  onTitleChange: (_title: string) => void;
+  onDescriptionChange: (_description: string) => void;
+  onDueDateChange: (_dueDate: string) => void;
+  onCompletedChange: (_e: React.MouseEvent) => void;
 }
 
 export function TaskBasicInfo({
-  task,
   title,
   description,
   dueDate,

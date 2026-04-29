@@ -13,7 +13,6 @@ interface TaskActionsProps {
 }
 
 export function TaskActions({
-  task,
   isSaving,
   onSave,
   onDelete,

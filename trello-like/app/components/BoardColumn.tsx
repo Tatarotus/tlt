@@ -19,7 +19,17 @@ type BoardColumnProps = {
   onTaskClick: (_task: Task) => void;
 };
 
-function ColumnHeader({ title, taskCount, isEditing, onTitleClick, onTitleChange, onTitleBlur, onDelete }: any) {
+interface ColumnHeaderProps {
+  title: string;
+  taskCount: number;
+  isEditing: boolean;
+  onTitleClick: () => void;
+  onTitleChange: (_value: string) => void;
+  onTitleBlur: () => void;
+  onDelete: () => void;
+}
+
+function ColumnHeader({ title, taskCount, isEditing, onTitleClick, onTitleChange, onTitleBlur, onDelete }: ColumnHeaderProps) {
   return (
     <div className="px-3 py-3 flex justify-between items-center border-b border-gray-200/50 group bg-white rounded-t-xl">
       {isEditing ? (
@@ -35,7 +45,15 @@ function ColumnHeader({ title, taskCount, isEditing, onTitleClick, onTitleChange
   );
 }
 
-function AddCardForm({ isAdding, newTaskTitle, setNewTaskTitle, onSubmit, setIsAdding }: any) {
+interface AddCardFormProps {
+  isAdding: boolean;
+  newTaskTitle: string;
+  setNewTaskTitle: (_value: string) => void;
+  onSubmit: (_e: React.FormEvent) => void;
+  setIsAdding: (_value: boolean) => void;
+}
+
+function AddCardForm({ isAdding, newTaskTitle, setNewTaskTitle, onSubmit, setIsAdding }: AddCardFormProps) {
   if (!isAdding) return <button onClick={() => setIsAdding(true)} className="w-full text-left px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-200/50 rounded-lg transition-colors flex items-center gap-2 group"><span className="p-0.5 rounded bg-gray-200 group-hover:bg-gray-300 transition-colors"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14m-7-7h14"/></svg></span>Add a card</button>;
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-200">

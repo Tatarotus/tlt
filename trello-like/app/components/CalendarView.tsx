@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { toISOLocalDate, toLocalMidnight } from "@/lib/date-utils";
+import { useState, useEffect } from "react";
+import { toISOLocalDate } from "@/lib/date-utils";
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarGrid } from './CalendarGrid';
 import { CalendarEvent } from './CalendarEvent';
@@ -17,8 +17,27 @@ interface CalendarHighlightProps {
   highlights: Highlight[];
   workspaceSlug: string;
   onHighlightsChange: () => void;
-  onHighlightClick: (highlight: Highlight) => void;
+  onHighlightClick: (_highlight: Highlight) => void;
   taskDots?: { taskId: string; title: string; dueDate: string }[];
+}
+
+interface RenderRightPanelProps {
+  currentYear: number;
+  selectedColor: string;
+  highlightName: string;
+  selectionStart: Date | null;
+  selectionEnd: Date | null;
+  isCreatingHighlight: boolean;
+  createError: string | null;
+  isColorPickerOpen: boolean;
+  highlights: Highlight[];
+  onSelectedColorChange: (_color: string) => void;
+  onHighlightNameChange: (_name: string) => void;
+  onIsCreatingHighlightChange: (_creating: boolean) => void;
+  onCreateHighlight: () => void;
+  onIsColorPickerOpenChange: (_open: boolean) => void;
+  onDeleteHighlight: (_id: string) => void;
+  onHighlightClick: (_highlight: Highlight) => void;
 }
 
 function renderRightPanel({
@@ -38,24 +57,7 @@ function renderRightPanel({
   onIsColorPickerOpenChange,
   onDeleteHighlight,
   onHighlightClick,
-}: {
-  currentYear: number;
-  selectedColor: string;
-  highlightName: string;
-  selectionStart: Date | null;
-  selectionEnd: Date | null;
-  isCreatingHighlight: boolean;
-  createError: string | null;
-  isColorPickerOpen: boolean;
-  highlights: Highlight[];
-  onSelectedColorChange: (color: string) => void;
-  onHighlightNameChange: (name: string) => void;
-  onIsCreatingHighlightChange: (creating: boolean) => void;
-  onCreateHighlight: () => void;
-  onIsColorPickerOpenChange: (open: boolean) => void;
-  onDeleteHighlight: (id: string) => void;
-  onHighlightClick: (highlight: Highlight) => void;
-}) {
+}: RenderRightPanelProps) {
   return (
     <div className="w-72 border-l border-gray-200 bg-white p-4 flex flex-col h-full">
       <CalendarHeader
@@ -112,7 +114,6 @@ export function CalendarView({
   const [selectionStart, setSelectionStart] = useState<Date | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<Date | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const calendarRef = useRef<HTMLDivElement>(null);
 
   const handleCreateHighlight = async () => {
     if (!selectionStart || !selectionEnd || !highlightName.trim()) return;

@@ -31,7 +31,6 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [proposedSubtaskTitles, setProposedSubtaskTitles] = useState<string[]>([]);
-  const [aiStatusUpdate, setAiStatusUpdate] = useState<string | null>(null);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -48,16 +47,16 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setTitle(currentTask.title);
     setDescription(currentTask.description || '');
     setDueDate(currentTask.dueDate || '');
     setSelectedLabels(currentTask.labels || []);
     setCompleted(currentTask.completed || false);
-    setAiStatusUpdate(null);
-    setProposedSubtaskTitles([]);
     fetchSubtasks(currentTask.id);
   }, [currentTask, fetchSubtasks]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null;
 
@@ -81,7 +80,7 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
     setIsSaving(false);
   };
 
-  const handleToggleCompleted = (e: React.MouseEvent) => {
+  const handleToggleCompleted = (_e: React.MouseEvent) => {
     const newCompletedState = !completed;
     setCompleted(newCompletedState);
   };
@@ -119,8 +118,7 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
     }
   };
 
-  const handleStatusUpdateGenerated = (update: string) => {
-    setAiStatusUpdate(update);
+  const handleStatusUpdateGenerated = (_update: string) => {
   };
 
   const handleProposedSubtasksSave = async () => {
@@ -137,7 +135,9 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
 
   const handleDelete = () => {
     onDelete(currentTask.id);
-    if (taskStack.length > 1) goBack();
+    if (taskStack.length > 1) {
+      setTaskStack(prev => prev.slice(0, -1));
+    }
   };
 
   const drillDown = (task: Task) => setTaskStack(prev => [...prev, task]);

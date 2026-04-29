@@ -1,7 +1,6 @@
 "use client";
 import { useMemo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { CategoryData as CategoryDataType, SessionData } from '@/app/actions/category-actions';
 
 interface PieDataEntry { name: string; value: number; color: string; }

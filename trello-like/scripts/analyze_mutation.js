@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // Script to analyze mutation testing results and provide actionable feedback
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 // Function to analyze mutation results and generate a human-readable report
 function analyzeMutationResults() {

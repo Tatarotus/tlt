@@ -16,10 +16,10 @@ interface CalendarGridProps {
   selectionEnd: Date | null;
   taskDots: { taskId: string; title: string; dueDate: string }[];
   isDragging: boolean;
-  onMouseDown: (date: Date) => void;
-  onMouseEnter: (date: Date) => void;
+  onMouseDown: (_date: Date) => void;
+  onMouseEnter: (_date: Date) => void;
   onMouseUp: () => void;
-  onHighlightClick: (highlight: Highlight) => void;
+  onHighlightClick: (_highlight: Highlight) => void;
 }
 
 const MONTHS = [
@@ -29,7 +29,21 @@ const MONTHS = [
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function MonthView({ monthIndex, currentYear, highlights, selectionStart, selectionEnd, taskDots, isDragging, onMouseDown, onMouseEnter, onMouseUp, onHighlightClick }: any) {
+interface MonthViewProps {
+  monthIndex: number;
+  currentYear: number;
+  highlights: Highlight[];
+  selectionStart: Date | null;
+  selectionEnd: Date | null;
+  taskDots: { taskId: string; title: string; dueDate: string }[];
+  isDragging: boolean;
+  onMouseDown: (_date: Date) => void;
+  onMouseEnter: (_date: Date) => void;
+  onMouseUp: () => void;
+  onHighlightClick: (_highlight: Highlight) => void;
+}
+
+function MonthView({ monthIndex, currentYear, highlights, selectionStart, selectionEnd, taskDots, isDragging, onMouseDown, onMouseEnter, onMouseUp, onHighlightClick }: MonthViewProps) {
   const firstDay = new Date(currentYear, monthIndex, 1), lastDay = new Date(currentYear, monthIndex + 1, 0);
   const days: (Date | null)[] = Array(firstDay.getDay()).fill(null);
   for (let i = 1; i <= lastDay.getDate(); i++) days.push(new Date(currentYear, monthIndex, i));

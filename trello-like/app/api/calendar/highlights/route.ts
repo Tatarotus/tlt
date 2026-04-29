@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       success: true, 
       highlight: { ...newHighlight, startDate: safeToISOString(newHighlight.startDate), endDate: safeToISOString(newHighlight.endDate) } 
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to create highlight' }, { status: 500 });
   }
 }

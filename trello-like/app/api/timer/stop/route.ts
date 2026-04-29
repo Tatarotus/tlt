@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     const stopped = await stopActiveSession(active[0].id);
     return NextResponse.json({ success: true, session: stopped });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to stop timer' }, { status: 500 });
   }
 }

@@ -38,10 +38,22 @@ function MetricCard({ title, value, icon, colorClass }: MetricCardProps) {
   );
 }
 
+interface DashboardData {
+  metrics: {
+    today: string;
+    week: string;
+    mostUsed: string;
+    entries: number;
+  };
+  donutData: { name: string; value: number }[];
+  barData: { date: string; [key: string]: string | number }[];
+  recentLogs: { id: number; category: string; startTime: string; duration: number; notes?: string | null }[];
+  categories: string[];
+}
+
 export function TimeDashboard() {
   const [range, setRange] = useState<DashboardRange>('week');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

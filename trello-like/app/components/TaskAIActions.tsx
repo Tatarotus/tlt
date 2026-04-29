@@ -2,17 +2,17 @@
 import { useState } from 'react';
 import { Button } from './ui/Button';
 import { Task } from '@/lib/types';
-import { aiMakeTaskPerfect, aiRewriteTask, aiWriteStatusUpdate, aiSuggestTags } from '../actions/ai-actions';
+import { aiMakeTaskPerfect, aiRewriteTask, aiWriteStatusUpdate } from '../actions/ai-actions';
 
 interface TaskAIActionsProps {
   task: Task;
   selectedLabels: string[];
   dueDate: string;
-  onTitleChange: (title: string) => void;
-  onDescriptionChange: (description: string) => void;
-  onLabelsChange: (labels: string[]) => void;
-  onDueDateChange: (dueDate: string) => void;
-  onStatusUpdateGenerated: (update: string) => void;
+  onTitleChange: (_title: string) => void;
+  onDescriptionChange: (_description: string) => void;
+  onLabelsChange: (_labels: string[]) => void;
+  onDueDateChange: (_dueDate: string) => void;
+  onStatusUpdateGenerated: (_update: string) => void;
 }
 
 export function TaskAIActions({
@@ -27,7 +27,7 @@ export function TaskAIActions({
 }: TaskAIActionsProps) {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiStatusUpdate, setAiStatusUpdate] = useState<string | null>(null);
+  const [aiStatusUpdate, _setAiStatusUpdate] = useState<string | null>(null);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -37,7 +37,6 @@ export function TaskAIActions({
     try {
       const result = await aiWriteStatusUpdate(task.id);
       if (result.success && result.update) {
-        setAiStatusUpdate(result.update);
         setIsAiPanelOpen(true);
         onStatusUpdateGenerated(result.update);
       } else {
@@ -66,13 +65,12 @@ export function TaskAIActions({
         if (d.suggestedDueDate && !dueDate) {
           onDueDateChange(d.suggestedDueDate);
         }
-        if (!task.dueDate) {
-          const statusRes = await aiWriteStatusUpdate(task.id);
-          if (statusRes.success && statusRes.update) {
-            setAiStatusUpdate(statusRes.update);
-            setIsAiPanelOpen(true);
-          }
+if (!task.dueDate) {
+        const statusRes = await aiWriteStatusUpdate(task.id);
+        if (statusRes.success && statusRes.update) {
+          setIsAiPanelOpen(true);
         }
+      }
       } else {
         setAiError(result.error || 'Failed to optimize task.');
       }
@@ -92,24 +90,6 @@ export function TaskAIActions({
         onDescriptionChange(result.data.description);
       } else {
         setAiError(result.error || 'Rewrite failed.');
-      }
-    } catch (_err) {
-      setAiError('AI error.');
-    }
-    setIsAiThinking(false);
-  };
-
-  const handleAiSuggestTags = async () => {
-    setIsAiThinking(true);
-    setAiError(null);
-    try {
-      const res = await aiSuggestTags(task.id);
-      if (res.success && res.tags) {
-        const lowerExisting = selectedLabels.map((l) => l.toLowerCase());
-        const newTags = res.tags.filter((t: string) => !lowerExisting.includes(t.toLowerCase()));
-        onLabelsChange([...selectedLabels, ...newTags]);
-      } else {
-        setAiError(res.error || 'Tag suggestion failed.');
       }
     } catch (_err) {
       setAiError('AI error.');

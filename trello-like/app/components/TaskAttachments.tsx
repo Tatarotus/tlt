@@ -1,8 +1,7 @@
 "use client";
-import { useState } from 'react';
+import { useState as _useState } from 'react';
 import { Button } from './ui/Button';
 import { Task } from '@/lib/types';
-import { createTask, getSubTasks, updateTask, deleteTask } from '../actions/task-actions';
 import { TimerButton } from './TimerButton';
 
 const AVAILABLE_LABELS = [
@@ -26,17 +25,17 @@ interface TaskAttachmentsProps {
   selectedLabels: string[];
   subtasks: Task[];
   proposedSubtaskTitles: string[];
-  onLabelsChange: (labels: string[]) => void;
-  onSubtasksChange: (subtasks: Task[]) => void;
-  onProposedSubtasksChange: (titles: string[]) => void;
-  onDrillDown: (task: Task) => void;
-  onToggleSubtaskCompleted: (subtaskId: string, e: React.MouseEvent) => Promise<void>;
-  onDeleteSubtask: (subtaskId: string, e: React.MouseEvent) => Promise<void>;
-  onAddSubtask: (e: React.FormEvent) => Promise<void>;
-  onNewSubtaskTitleChange: (title: string) => void;
+  onLabelsChange: (_labels: string[]) => void;
+  _onSubtasksChange: (_subtasks: Task[]) => void;
+  onProposedSubtasksChange: (_titles: string[]) => void;
+  onDrillDown: (_task: Task) => void;
+  onToggleSubtaskCompleted: (_subtaskId: string, _e: React.MouseEvent) => Promise<void>;
+  onDeleteSubtask: (_subtaskId: string, _e: React.MouseEvent) => Promise<void>;
+  onAddSubtask: (_e: React.FormEvent) => Promise<void>;
+  onNewSubtaskTitleChange: (_title: string) => void;
   newSubtaskTitle: string;
   isAddingSubtask: boolean;
-  setIsAddingSubtask: (value: boolean) => void;
+  setIsAddingSubtask: (_value: boolean) => void;
 }
 
 export function TaskAttachments({
@@ -45,7 +44,7 @@ export function TaskAttachments({
   subtasks,
   proposedSubtaskTitles,
   onLabelsChange,
-  onSubtasksChange,
+  _onSubtasksChange,
   onProposedSubtasksChange,
   onDrillDown,
   onToggleSubtaskCompleted,

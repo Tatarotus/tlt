@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const [newS] = await db.insert(sessions).values({ category, categoryId: null, userId: session.userId, startTime: new Date(), notes: notes || null, cardId: cardId || null, source: 'kanban' }).returning();
     return NextResponse.json({ success: true, session: newS });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to start timer' }, { status: 500 });
   }
 }
