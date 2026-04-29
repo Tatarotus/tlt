@@ -7,6 +7,7 @@ module.exports = {
   },
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/', '<rootDir>/.stryker-tmp/'],
   modulePathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/.stryker-tmp/', '<rootDir>/coverage/', '<rootDir>/reports/'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   collectCoverage: true,
   coverageReporters: ['json-summary', 'text', 'lcov'],
   collectCoverageFrom: [
