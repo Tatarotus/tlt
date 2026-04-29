@@ -2,7 +2,7 @@
 import crypto from 'crypto';
 
 if (typeof global.crypto === 'undefined') {
-  (global as any).crypto = {
+  (global as unknown as { crypto: typeof crypto }).crypto = {
     randomUUID: crypto.randomUUID,
   };
 }
