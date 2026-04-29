@@ -26,7 +26,7 @@ interface TaskAttachmentsProps {
   subtasks: Task[];
   proposedSubtaskTitles: string[];
   onLabelsChange: (_labels: string[]) => void;
-  _onSubtasksChange: (_subtasks: Task[]) => void;
+  onSubtasksChange: (_subtasks: Task[]) => void;
   onProposedSubtasksChange: (_titles: string[]) => void;
   onDrillDown: (_task: Task) => void;
   onToggleSubtaskCompleted: (_subtaskId: string, _e: React.MouseEvent) => Promise<void>;
@@ -44,7 +44,7 @@ export function TaskAttachments({
   subtasks,
   proposedSubtaskTitles,
   onLabelsChange,
-  _onSubtasksChange,
+  onSubtasksChange,
   onProposedSubtasksChange,
   onDrillDown,
   onToggleSubtaskCompleted,

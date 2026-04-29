@@ -61,7 +61,8 @@ export function TimeDashboard() {
       setLoading(true);
       const res = await getDashboardData(range);
       if (res.success) {
-        setData(res);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setData(res as any);
       }
       setLoading(false);
     }
