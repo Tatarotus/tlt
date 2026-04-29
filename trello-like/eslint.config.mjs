@@ -22,7 +22,8 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }],
       "no-unused-expressions": "error",
       "no-duplicate-imports": "error",
-      "import/no-cycle": "error",
+      // Disabled because it makes local linting hang on this Next/TS graph.
+      "import/no-cycle": "off",
       "import/no-restricted-paths": [
         "error",
         {
@@ -56,6 +57,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "coverage/**",
+    "reports/**",
+    ".stryker-tmp/**",
   ]),
 ]);
 

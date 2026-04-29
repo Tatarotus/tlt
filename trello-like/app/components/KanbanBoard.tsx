@@ -48,7 +48,12 @@ function syncListOrder(listId: string, listTasks: Task[]) {
   return reorderTasks(updatedTasks);
 }
 
-async function handleDragEnd(event: DragEndEvent, lists: List[], setLists: React.Dispatch<React.SetStateAction<List[]>>, stopTimer: (cardId: string) => Promise<unknown>) {
+async function handleDragEnd(
+  event: DragEndEvent,
+  lists: List[],
+  setLists: React.Dispatch<React.SetStateAction<List[]>>,
+  stopTimer: (_cardId: string) => Promise<unknown>
+) {
   const { active, over } = event;
   const activeId = String(active.id);
   const overId = over ? String(over.id) : null;

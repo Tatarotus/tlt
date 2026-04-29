@@ -5,9 +5,11 @@
 
 echo "Running test coverage check..."
 
-# Run tests with coverage
-# We use --ci to avoid interactive mode and ensure it exits
-npm run test -- --ci --coverage
+# Run tests with coverage. We use --ci to avoid interactive mode and ensure it exits.
+if ! npm run test -- --ci --coverage; then
+    echo "❌ FAILED: Tests or Jest coverage thresholds failed"
+    exit 1
+fi
 
 # Check if the summary file exists
 if [ ! -f "./coverage/coverage-summary.json" ]; then

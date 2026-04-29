@@ -23,7 +23,6 @@ interface TimerContextType {
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
-// eslint-disable-next-line max-lines-per-function
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [activeTimer, setActiveTimer] = useState<Timer | null>(null);
   const [loading, setLoading] = useState(false);

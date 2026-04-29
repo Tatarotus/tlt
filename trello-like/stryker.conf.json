@@ -14,7 +14,10 @@
     "excludedMutations": ["StringLiteral", "BlockStatement", "Regex"]
   },
   "reporters": ["clear-text", "progress", "html", "json"],
-  "testRunnerCommand": "npx jest --config jest.config.js",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "npx jest --config jest.config.js --runInBand --coverage=false"
+  },
   "timeoutFactor": 1.5,
   "timeoutMS": 120000,
   "coverageAnalysis": "off",

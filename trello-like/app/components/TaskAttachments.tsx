@@ -44,7 +44,6 @@ export function TaskAttachments({
   subtasks,
   proposedSubtaskTitles,
   onLabelsChange,
-  onSubtasksChange,
   onProposedSubtasksChange,
   onDrillDown,
   onToggleSubtaskCompleted,

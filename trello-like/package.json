@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint app db lib tests scripts *.config.* next.config.ts proxy.ts --ext .js,.jsx,.ts,.tsx,.mjs,.cjs",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:coverage": "jest --coverage",
