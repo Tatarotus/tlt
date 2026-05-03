@@ -47,7 +47,9 @@ export function WorkspaceCalendar({ workspace, initialHighlights, userId }: Work
 
   const refreshHighlights = useCallback(async () => {
     try {
-      const res = await fetch(`/api/calendar/highlights?workspaceSlug=${workspace.slug}`);
+      const res = await fetch(`/api/calendar/highlights?workspaceSlug=${workspace.slug}&t=${Date.now()}`, {
+        cache: 'no-store'
+      });
       const data = await res.json();
       if (data.success) setHighlights(data.highlights);
     } catch (err) { console.error("Failed to refresh highlights:", err); }

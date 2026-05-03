@@ -74,7 +74,7 @@ export function CalendarHeader({
   selectedColor, highlightName, selectionStart, selectionEnd, isCreatingHighlight, createError, isColorPickerOpen, onSelectedColorChange, onHighlightNameChange, onCreateHighlight, onIsColorPickerOpenChange,
 }: CalendarHeaderProps) {
   return (
-    <div className="w-72 border-l border-gray-200 bg-white p-4 flex flex-col h-full">
+    <div className="flex flex-col shrink-0">
       <h3 className="text-sm font-bold text-gray-900 mb-4">New Highlight</h3>
       <div className="space-y-3 mb-6">
         <ColorSelector selectedColor={selectedColor} onSelectedColorChange={onSelectedColorChange} isColorPickerOpen={isColorPickerOpen} onIsColorPickerOpenChange={onIsColorPickerOpenChange} />
@@ -89,7 +89,7 @@ export function CalendarHeader({
           <DateSelectionForm selectionStart={selectionStart} selectionEnd={selectionEnd} highlightName={highlightName} onHighlightNameChange={onHighlightNameChange} onCreateHighlight={onCreateHighlight} createError={createError} isCreatingHighlight={isCreatingHighlight} />
         ) : <div className="text-xs text-gray-500 text-center py-4">Drag on the calendar to select dates</div>}
       </div>
-      <div className="flex-1 overflow-y-auto space-y-2"><h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Highlights</h4></div>
+      <div className="pb-2"><h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Highlights</h4></div>
     </div>
   );
 }

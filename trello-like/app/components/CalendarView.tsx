@@ -77,7 +77,7 @@ function renderRightPanel({
       />
 
       <div className="flex-1 overflow-y-auto space-y-2">
-        {highlights
+        {[...highlights]
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
           .map((h) => (
             <CalendarEvent
