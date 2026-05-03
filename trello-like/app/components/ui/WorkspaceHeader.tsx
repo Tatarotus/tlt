@@ -49,11 +49,19 @@ export function WorkspaceHeader({ id, name, slug, description, backHref, backLab
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this workspace? All boards and tasks will be permanently removed.")) return;
     setIsDeleting(true);
-    const result = await deleteWorkspace(id);
-    if (result.success) {
-      router.push("/");
+    try {
+      const result = await deleteWorkspace(id);
+      if (result.success) {
+        router.push("/");
+      } else {
+        alert("Failed to delete workspace: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("An unexpected error occurred while deleting the workspace.");
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
     }
-    setIsDeleting(false);
   };
 
   return (

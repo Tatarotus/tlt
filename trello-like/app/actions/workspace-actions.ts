@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from '@/db';
-import { users, workspaces, boards, lists, tasks } from '@/db/schema';
+import { users, workspaces, boards, lists, tasks, tags, calendarHighlights } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 
@@ -131,11 +131,18 @@ export async function deleteWorkspace(workspaceId: string) {
       await db.delete(boards).where(eq(boards.workspaceId, workspaceId));
     }
 
-    // 6. Finally, delete the workspace itself
+    // 6. Delete tags belonging to this workspace
+    await db.delete(tags).where(eq(tags.workspaceId, workspaceId));
+
+    // 7. Delete calendar highlights belonging to this workspace
+    await db.delete(calendarHighlights).where(eq(calendarHighlights.workspaceId, workspaceId));
+
+    // 8. Finally, delete the workspace itself
     await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
     
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("Delete workspace failed:", error);
     return { success: false, error: "Database delete failed" };
   }
 }
