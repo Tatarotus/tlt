@@ -42,6 +42,11 @@ describe('Date Utils', () => {
       expect(toDateOnlyString(date)).toBe('2024-05-20');
     });
 
+    it('handles string that is a valid date but not in YYYY-MM-DD format', () => {
+      const date = toDateOnlyString('05/10/2024'); // May 10, 2024
+      expect(date).toBe('2024-05-10');
+    });
+
     it('returns null for invalid date strings', () => {
       expect(toDateOnlyString('not-a-date')).toBeNull();
     });
@@ -147,6 +152,13 @@ describe('Date Utils', () => {
   it('should handle string with only year-month (incomplete date)', () => {
     const date = parseISOLocal('2023-05');
     expect(date instanceof Date).toBe(true);
+  });
+
+  it('should handle string that is a valid date but not in YYYY-MM-DD format', () => {
+    const date = parseISOLocal('05/15/2023'); // Valid MM/DD/YYYY format
+    expect(date.getFullYear()).toBe(2023);
+    expect(date.getMonth()).toBe(4);
+    expect(date.getDate()).toBe(15);
   });
 
   it('should handle string with wrong format (DD-MM-YYYY)', () => {
@@ -280,6 +292,14 @@ describe('safeToISOString', () => {
   it('should handle object with invalid date values', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const result = safeToISOString({ startDate: 'invalid' });
+    expect(typeof result).toBe('string');
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('should handle an object without date properties by stringifying it', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = safeToISOString({ someProp: 'test' });
     expect(typeof result).toBe('string');
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();

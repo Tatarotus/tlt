@@ -78,6 +78,14 @@ describe('Calendar Highlights By ID API Routes', () => {
       const result = await GET({} as Request, { params: Promise.resolve({ id: 'h1' }) });
       expect(result.status).toBe(200);
     });
+
+    it('returns 500 on database error', async () => {
+      authorize();
+      (db.query.calendarHighlights.findFirst as jest.Mock).mockRejectedValue(new Error('DB error'));
+      const { GET } = await import('@/app/api/calendar/highlights/[id]/route');
+      const result = await GET({} as Request, { params: Promise.resolve({ id: 'h1' }) });
+      expect(result.status).toBe(500);
+    });
   });
 
   describe('PUT /api/calendar/highlights/[id]', () => {
@@ -153,6 +161,19 @@ describe('Calendar Highlights By ID API Routes', () => {
       db.update.mockReturnValue({ set });
       const { PUT } = await import('@/app/api/calendar/highlights/[id]/route');
       const result = await PUT(createMockRequest({ startDate: '2024-01-02', endDate: '2024-01-01' }), { params: Promise.resolve({ id: 'h1' }) });
+      expect(result.status).toBe(400);
+    });
+
+    it('returns 400 when end date is invalid', async () => {
+      authorize();
+      const highlight = { id: 'h1', workspaceId: 'ws-1', workspace: { userId: 'user-1' } };
+      (db.query.calendarHighlights.findFirst as jest.Mock).mockResolvedValue(highlight);
+      const returning = jest.fn().mockResolvedValue([]);
+      const where = jest.fn().mockReturnValue({ returning });
+      const set = jest.fn().mockReturnValue({ where });
+      db.update.mockReturnValue({ set });
+      const { PUT } = await import('@/app/api/calendar/highlights/[id]/route');
+      const result = await PUT(createMockRequest({ endDate: 'invalid' }), { params: Promise.resolve({ id: 'h1' }) });
       expect(result.status).toBe(400);
     });
 

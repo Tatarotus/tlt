@@ -44,7 +44,6 @@ export function BoardCard({
   const [error, setError] = useState("");
   const selectedBackground = getBoardBackgroundPattern(appliedPattern);
   const hasImage = Boolean(appliedImageUrl);
-  const canCustomize = variant === "board";
   const tileBackgroundStyle: CSSProperties = {
     backgroundColor: "#ffffff",
     backgroundImage: hasImage ? cssUrl(appliedImageUrl) : selectedBackground.backgroundImage,
@@ -66,7 +65,8 @@ export function BoardCard({
       : await updateBoard(id, updates);
 
     if (result.success) {
-      const data = (variant === "workspace" ? (result as any).workspace : (result as any).board);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = variant === "workspace" ? (result as any).workspace : (result as any).board;
       setAppliedPattern(data?.backgroundPattern || "none");
       setAppliedImageUrl(data?.backgroundImageUrl || "");
       setSelectedPattern(data?.backgroundPattern || "none");

@@ -7,7 +7,8 @@ import { TaskBasicInfo } from './TaskBasicInfo';
 import { TaskAIActions } from './TaskAIActions';
 import { TaskAttachments } from './TaskAttachments';
 import { TaskActions } from './TaskActions';
-import { TaskBreadcrumbs } from './TaskBreadcrumbs';
+import { TaskDetailHeader } from './TaskDetailHeader';
+import { TaskDetailFooter } from './TaskDetailFooter';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -177,21 +178,12 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Breadcrumbs */}
-        <div className="bg-gray-50/80 backdrop-blur-sm border-b border-gray-100 px-6 py-3 flex items-center justify-between shrink-0">
-          <TaskBreadcrumbs 
-            taskStack={taskStack} 
-            onBack={goBack} 
-            onNavigate={handleBreadcrumbNavigate} 
-          />
-          <button
-            onClick={onClose}
-            className="ml-4 p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-200 transition-all cursor-pointer shrink-0"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <TaskDetailHeader 
+          taskStack={taskStack}
+          goBack={goBack}
+          handleBreadcrumbNavigate={handleBreadcrumbNavigate}
+          onClose={onClose}
+        />
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
@@ -314,31 +306,7 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
         </div>
 
         {/* Footer */}
-        <div className="bg-white border-t border-gray-100 px-8 py-5 flex justify-end items-center gap-4 shrink-0">
-          <button 
-            onClick={onClose}
-            className="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </button>
-        </div>
+        <TaskDetailFooter onClose={onClose} onSave={handleSave} isSaving={isSaving} />
       </div>
     </div>
   );

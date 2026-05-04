@@ -141,6 +141,20 @@ describe('task server actions', () => {
     expect(result).toEqual({ success: true, task: updatedTask });
   });
 
+  it('returns a database error when task update fails', async () => {
+    authorize();
+    const returning = jest.fn<() => Promise<unknown[]>>().mockRejectedValue(new Error('db failed'));
+    const where = jest.fn<(_condition: unknown) => { returning: typeof returning }>(() => ({
+      returning,
+    }));
+    const set = jest.fn<(_values: unknown) => { where: typeof where }>(() => ({ where }));
+    mockedDb.update.mockReturnValue({ set });
+
+    const result = await updateTask('task-1', { title: 'New' });
+
+    expect(result).toEqual({ success: false, error: 'Database update failed' });
+  });
+
   it('fetches subtasks ordered by task order', async () => {
     authorize();
     const subtasks = [{ id: 'subtask-1' }, { id: 'subtask-2' }];
@@ -165,6 +179,17 @@ describe('task server actions', () => {
     expect(result).toEqual({ success: true });
   });
 
+  it('returns a database error when updateListTitle fails', async () => {
+    authorize();
+    const where = jest.fn<(_condition: unknown) => Promise<void>>().mockRejectedValue(new Error('db failed'));
+    const set = jest.fn<(_values: unknown) => { where: typeof where }>(() => ({ where }));
+    mockedDb.update.mockReturnValue({ set });
+
+    const result = await updateListTitle('list-1', 'Done');
+
+    expect(result).toEqual({ success: false, error: 'Database update failed' });
+  });
+
   it('creates lists for an authenticated user', async () => {
     authorize();
     const { values } = mockInsertReturning([{ id: 'list-1', title: 'Todo' }]);
@@ -178,6 +203,17 @@ describe('task server actions', () => {
       boardId: 'board-1',
     });
     expect(result).toEqual({ success: true, list: { id: 'list-1', title: 'Todo' } });
+  });
+
+  it('returns a database error when createList fails', async () => {
+    authorize();
+    const returning = jest.fn<() => Promise<unknown[]>>().mockRejectedValue(new Error('db failed'));
+    const values = jest.fn<(_values: unknown) => { returning: typeof returning }>(() => ({ returning }));
+    mockedDb.insert.mockReturnValue({ values });
+
+    const result = await createList('Todo', 0, 'board-1');
+
+    expect(result).toEqual({ success: false, error: 'Database insert failed' });
   });
 
   it('deletes a task by id', async () => {
@@ -200,6 +236,16 @@ describe('task server actions', () => {
     expect(result).toEqual({ success: true });
   });
 
+  it('returns a database error when deleteList fails', async () => {
+    authorize();
+    const where = jest.fn<(_condition: unknown) => Promise<void>>().mockRejectedValue(new Error('db failed'));
+    mockedDb.delete.mockReturnValue({ where });
+
+    const result = await deleteList('list-1');
+
+    expect(result).toEqual({ success: false, error: 'Database delete failed' });
+  });
+
   it('reorders tasks inside a transaction', async () => {
     authorize();
     const txUpdate = jest.fn<(_table: unknown) => { set: (_values: unknown) => { where: (_condition: unknown) => Promise<void> } }>(() => ({
@@ -219,4 +265,16 @@ describe('task server actions', () => {
     expect(txUpdate).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ success: true });
   });
+
+  it('returns a database error when reorderTasks fails', async () => {
+    authorize();
+    mockedDb.transaction.mockRejectedValue(new Error('db failed'));
+
+    const result = await reorderTasks([
+      { id: 'task-1', order: 0, listId: 'list-1' },
+    ]);
+
+    expect(result).toEqual({ success: false, error: 'Database update failed' });
+  });
+
 });

@@ -7,7 +7,7 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  onUpdate: (_data: any) => Promise<void>;
+  onUpdate: (_data: { name: string; slug: string; description: string }) => Promise<void>;
   onDelete: () => Promise<void>;
   initialData: {
     name: string;

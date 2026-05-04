@@ -63,6 +63,16 @@ describe('taskManagement', () => {
       expect(setLists).toHaveBeenCalledTimes(2);
       expect(getLists()[0].tasks).toEqual([]);
     });
+    it('reverts on exception', async () => {
+      const { setLists, getLists } = createSetLists([createList('list-1', 'List', [])]);
+      const createTaskMock = jest.fn<() => Promise<{ success: boolean }>>().mockRejectedValue(new Error('Network error'));
+      const lists: List[] = [createList('list-1', 'List', [])];
+      
+      await taskManagement.handleAddTask('list-1', 'New Task', lists, setLists, createTaskMock);
+      
+      expect(setLists).toHaveBeenCalledTimes(2);
+      expect(getLists()[0].tasks).toEqual([]);
+    });
   });
 
   describe('handleDeleteTask', () => {
@@ -90,6 +100,18 @@ describe('taskManagement', () => {
       expect(setSelectedTask).toHaveBeenCalledWith(null);
       expect(getLists()[0].tasks).toEqual([]);
     });
+
+    it('reverts on exception', async () => {
+      const deleteTask = jest.fn<() => Promise<{ success: boolean }>>().mockRejectedValue(new Error('Network error'));
+      const task = createTask('task-1');
+      const lists: List[] = [createList('list-1', 'List', [task])];
+      const { setLists, getLists } = createSetLists(lists);
+      
+      await taskManagement.handleDeleteTask('task-1', lists, setLists, null, jest.fn(), deleteTask);
+      
+      expect(setLists).toHaveBeenCalledTimes(2);
+      expect(getLists()).toEqual(lists);
+    });
   });
 
   describe('handleUpdateTask', () => {
@@ -115,6 +137,18 @@ describe('taskManagement', () => {
       
       expect(setLists).toHaveBeenCalled();
       expect(getLists()[0].tasks[0].title).toBe('New Title');
+    });
+
+    it('reverts on exception', async () => {
+      const updateTask = jest.fn<() => Promise<{ success: boolean }>>().mockRejectedValue(new Error('Network error'));
+      const task = createTask('task-1', 'Old Title');
+      const lists: List[] = [createList('list-1', 'List', [task])];
+      const { setLists, getLists } = createSetLists(lists);
+      
+      await taskManagement.handleUpdateTask('task-1', { title: 'New Title' }, lists, setLists, updateTask);
+      
+      expect(setLists).toHaveBeenCalledTimes(2);
+      expect(getLists()).toEqual(lists);
     });
   });
 

@@ -85,6 +85,19 @@ describe('Timer API Routes', () => {
       expect(result.status).toBe(200);
     });
 
+    it('creates new timer session with cardId and no notes', async () => {
+      authorize();
+      const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([]) });
+      const from = jest.fn().mockReturnValue({ where });
+      db.select.mockReturnValue({ from });
+      const returning = jest.fn().mockResolvedValue([{ id: 1, category: 'work', startTime: new Date() }]);
+      const values = jest.fn().mockReturnValue({ returning });
+      db.insert.mockReturnValue({ values });
+      const { POST } = await import('@/app/api/timer/start/route');
+      const result = await POST(createMockRequest({ category: 'work', cardId: 'card-1' }) as unknown as Request);
+      expect(result.status).toBe(200);
+    });
+
     it('returns 500 on database error', async () => {
       authorize();
       const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([]) });
@@ -116,9 +129,34 @@ describe('Timer API Routes', () => {
       expect(result.status).toBe(404);
     });
 
+    it('returns 404 when no active timer found without cardId', async () => {
+      authorize();
+      const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([]) });
+      const from = jest.fn().mockReturnValue({ where });
+      db.select.mockReturnValue({ from });
+      const { POST } = await import('@/app/api/timer/stop/route');
+      const result = await POST(createMockRequest({}) as unknown as Request);
+      expect(result.status).toBe(404);
+    });
+
     it('stops active timer and returns session', async () => {
       authorize();
       const activeTimer = { id: 1, category: 'work', startTime: new Date() };
+      const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([activeTimer]) });
+      const from = jest.fn().mockReturnValue({ where });
+      db.select.mockReturnValue({ from });
+      const returning = jest.fn().mockResolvedValue([{ ...activeTimer, endTime: new Date() }]);
+      const whereUpdate = jest.fn().mockReturnValue({ returning });
+      const set = jest.fn().mockReturnValue({ where: whereUpdate });
+      db.update.mockReturnValue({ set });
+      const { POST } = await import('@/app/api/timer/stop/route');
+      const result = await POST(createMockRequest({ cardId: 'card-1' }) as unknown as Request);
+      expect(result.status).toBe(200);
+    });
+
+    it('stops active timer with no startTime', async () => {
+      authorize();
+      const activeTimer = { id: 1, category: 'work' };
       const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([activeTimer]) });
       const from = jest.fn().mockReturnValue({ where });
       db.select.mockReturnValue({ from });
@@ -165,6 +203,17 @@ describe('Timer API Routes', () => {
     it('returns active timer when exists', async () => {
       authorize();
       const activeTimer = { id: 1, category: 'work', startTime: new Date(), notes: 'test', cardId: 'card-1', source: 'kanban' };
+      const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([activeTimer]) });
+      const from = jest.fn().mockReturnValue({ where });
+      db.select.mockReturnValue({ from });
+      const { GET } = await import('@/app/api/timer/active/route');
+      const result = await GET();
+      expect(result.status).toBe(200);
+    });
+
+    it('returns active timer with duration 0 if no startTime', async () => {
+      authorize();
+      const activeTimer = { id: 1, category: 'work', notes: 'test', cardId: 'card-1', source: 'kanban' };
       const where = jest.fn().mockReturnValue({ limit: () => Promise.resolve([activeTimer]) });
       const from = jest.fn().mockReturnValue({ where });
       db.select.mockReturnValue({ from });

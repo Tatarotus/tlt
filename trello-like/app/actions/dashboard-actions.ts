@@ -107,7 +107,7 @@ function getBarData(allSessions: SessionWithId[]) {
     return d.toISOString().split('T')[0];
   });
 
-	last7Days.forEach(date => { dailyData[date] = { date: 0 }; });
+	last7Days.forEach(date => { dailyData[date] = { date }; });
   allSessions.forEach(s => {
     const dateStr = new Date(s.startTime).toISOString().split('T')[0];
     if (dailyData[dateStr]) {

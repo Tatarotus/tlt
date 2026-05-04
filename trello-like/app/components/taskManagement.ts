@@ -31,19 +31,26 @@ export const taskManagement = {
       list.id === listId ? { ...list, tasks: [...list.tasks, optimisticTask] } : list
     ));
     
-    const result = await createTask(title, listId, newOrder);
-    if (result.success && result.task) {
-      setLists((prev: List[]) => prev.map((list: List) => 
-        list.id === listId ? { ...list, tasks: list.tasks.map((task: Task) => 
-          task.id === tempId ? result.task! : task
-        )} : list
-      ));
-      return result.task; // Return the real task
-    } else {
-        // Revert on failure
+    try {
+      const result = await createTask(title, listId, newOrder);
+      if (result.success && result.task) {
         setLists((prev: List[]) => prev.map((list: List) => 
-          list.id === listId ? { ...list, tasks: list.tasks.filter((t: Task) => t.id !== tempId) } : list
+          list.id === listId ? { ...list, tasks: list.tasks.map((task: Task) => 
+            task.id === tempId ? result.task! : task
+          )} : list
         ));
+        return result.task; // Return the real task
+      } else {
+          // Revert on failure
+          setLists((prev: List[]) => prev.map((list: List) => 
+            list.id === listId ? { ...list, tasks: list.tasks.filter((t: Task) => t.id !== tempId) } : list
+          ));
+      }
+    } catch (error) {
+      console.error("Failed to add task:", error);
+      setLists((prev: List[]) => prev.map((list: List) => 
+        list.id === listId ? { ...list, tasks: list.tasks.filter((t: Task) => t.id !== tempId) } : list
+      ));
     }
   },
 
@@ -69,9 +76,14 @@ export const taskManagement = {
       })
     })));
 
-    const result = await deleteTask(taskId);
-    if (!result.success) setLists((_prev: List[]) => oldLists); 
-    if (selectedTask?.id === taskId) setSelectedTask(null);
+    try {
+      const result = await deleteTask(taskId);
+      if (!result.success) setLists((_prev: List[]) => oldLists); 
+      if (selectedTask?.id === taskId) setSelectedTask(null);
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      setLists((_prev: List[]) => oldLists);
+    }
   },
 
   handleUpdateTask: async (
@@ -96,9 +108,14 @@ export const taskManagement = {
         })
     })));
 
-    const result = await updateTask(taskId, updates);
-    if (!result.success) {
-        setLists((_prev: List[]) => oldLists);
+    try {
+      const result = await updateTask(taskId, updates);
+      if (!result.success) {
+          setLists((_prev: List[]) => oldLists);
+      }
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      setLists((_prev: List[]) => oldLists);
     }
   },
 
