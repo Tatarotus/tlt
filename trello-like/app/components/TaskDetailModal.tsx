@@ -16,9 +16,10 @@ interface TaskDetailModalProps {
   onSave: (_taskId: string, _updates: Partial<Task>) => Promise<void>;
   onDelete: (_taskId: string) => Promise<void>;
   onSubtasksChange?: (_parentId: string, _subtasks: Task[]) => void;
+  calendarHighlightId?: string;
 }
 
-export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, onDelete, onSubtasksChange }: TaskDetailModalProps) {
+export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, onDelete, onSubtasksChange, calendarHighlightId }: TaskDetailModalProps) {
   const [taskStack, setTaskStack] = useState<Task[]>([initialTask]);
   const currentTask = taskStack[taskStack.length - 1];
 
@@ -287,6 +288,7 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
                     task={currentTask}
                     selectedLabels={selectedLabels}
                     dueDate={dueDate}
+                    calendarHighlightId={calendarHighlightId}
                     onTitleChange={setTitle}
                     onDescriptionChange={setDescription}
                     onLabelsChange={setSelectedLabels}

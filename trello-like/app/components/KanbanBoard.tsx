@@ -104,7 +104,15 @@ async function handleDragEnd(
   }
 }
 
-export default function KanbanBoard({ initialLists, boardId }: { initialLists: List[], boardId: string }) {
+export default function KanbanBoard({
+  initialLists,
+  boardId,
+  calendarHighlightId,
+}: {
+  initialLists: List[];
+  boardId: string;
+  calendarHighlightId?: string;
+}) {
   const [lists, setLists] = useState<List[]>(initialLists);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -137,9 +145,12 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
     setActiveTask(null);
   }, [lists, stopTimer]);
 
-  const handleAddTask = useCallback((listId: string, title: string) => {
-    taskManagement.handleAddTask(listId, title, lists, setLists, createTask);
-  }, [lists]);
+  const handleAddTask = useCallback(async (listId: string, title: string) => {
+    const newTask = await taskManagement.handleAddTask(listId, title, lists, setLists, createTask);
+    if (newTask && selectedTask?.id.startsWith('temp-')) {
+      setSelectedTask(newTask);
+    }
+  }, [lists, selectedTask]);
 
   const handleRenameList = useCallback((listId: string, newTitle: string) => {
     listManagement.handleRenameList(listId, newTitle, lists, setLists, updateListTitle);
@@ -248,6 +259,7 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
             onSave={handleSaveTask}
             onDelete={handleDeleteTask}
             onSubtasksChange={handleSubtasksChange}
+            calendarHighlightId={calendarHighlightId}
           />
       )}
     </DndContext>

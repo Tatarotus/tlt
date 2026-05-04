@@ -16,6 +16,49 @@ export function toISOLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function toDateOnlyString(dateValue: Date | string | number | null | undefined): string | null {
+  if (!dateValue) return null;
+
+  let date: Date;
+  if (dateValue instanceof Date) {
+    date = dateValue;
+    if (isNaN(date.getTime())) return null;
+    // If it's a Date object, we prefer the UTC parts to avoid timezone shifts
+    // which is common for "date-only" values from databases.
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  const dateStr = String(dateValue);
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+
+  date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  
+  // For other string formats, if it doesn't look like an ISO date-only string,
+  // we use the local parts to be consistent with picking dates in the UI.
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function formatLocalDate(
+  dateValue: Date | string | number | null | undefined,
+  options?: Intl.DateTimeFormatOptions,
+  locales?: Intl.LocalesArgument
+): string | null {
+  if (!dateValue) return null;
+  const dateOnly = toDateOnlyString(dateValue);
+  if (!dateOnly) return null;
+  return parseISOLocal(dateOnly).toLocaleDateString(locales, options);
+}
+
 /**
  * Parses a date value into a local Date object (midnight).
  * Handles Date objects, ISO strings, and snake_case database objects.

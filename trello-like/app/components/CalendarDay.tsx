@@ -37,7 +37,7 @@ export function CalendarDay({
   const range = getSelectionRange(selectionStart, selectionEnd);
   const dayHighlights = highlights.filter((h) => isDateInRange(d, parseISOLocal(h.startDate), parseISOLocal(h.endDate)));
   const inSelection = range ? isDateInRange(date, range.s, range.e) : false;
-  const taskDotsForDay = taskDots.filter((t) => isSameDay(new Date(t.dueDate), date));
+  const taskDotsForDay = taskDots.filter((t) => isSameDay(parseISOLocal(t.dueDate), date));
   const hasHighlight = dayHighlights.length > 0;
   const primary = dayHighlights[0];
   const isToday = isSameDay(date, new Date());

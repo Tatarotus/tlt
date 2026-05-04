@@ -1,10 +1,11 @@
 "use server"
 
 import { db } from '@/db';
-import { tasks } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { calendarHighlights, tasks } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 import { createTask } from './task-actions';
+import { toDateOnlyString } from '@/lib/date-utils';
 
 const API_KEY = process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
 
@@ -89,6 +90,7 @@ let lastError: unknown = null;
 }
 
 async function getTaskContext(taskId: string) {
+if (!taskId || taskId.startsWith('temp-')) return null;
 const task = await db.query.tasks.findFirst({
 where: eq(tasks.id, taskId),
 with: {
@@ -120,6 +122,7 @@ interface TaskContext {
       id: string;
       name: string;
       workspace: {
+        id: string;
         name: string;
         slug: string;
         description: string | null;
@@ -129,11 +132,45 @@ interface TaskContext {
   };
 }
 
+interface AiCalendarOptions {
+  calendarHighlightId?: string;
+}
+
+async function getBoardCalendarContext(task: TaskContext, options?: AiCalendarOptions) {
+  const board = task.list.board;
+  const requestedHighlightId = options?.calendarHighlightId?.trim();
+  const requestedHighlight = requestedHighlightId
+    ? await db.query.calendarHighlights.findFirst({
+        where: and(
+          eq(calendarHighlights.id, requestedHighlightId),
+          eq(calendarHighlights.workspaceId, board.workspace.id)
+        ),
+      })
+    : null;
+
+  const highlight = await db.query.calendarHighlights.findFirst({
+    where: and(
+      eq(calendarHighlights.workspaceId, board.workspace.id),
+      eq(calendarHighlights.title, board.name)
+    ),
+  });
+  const calendarHighlight = requestedHighlight || highlight;
+
+  if (!calendarHighlight) return null;
+
+  return {
+    title: calendarHighlight.title,
+    startDate: toDateOnlyString(calendarHighlight.startDate),
+    endDate: toDateOnlyString(calendarHighlight.endDate),
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatContextPrompt(task: any) {
+async function formatContextPrompt(task: any, options?: AiCalendarOptions) {
   const t = task as TaskContext;
   const workspace = t.list.board.workspace;
   const board = t.list.board;
+  const calendarContext = await getBoardCalendarContext(t, options);
   const otherBoards = workspace.boards
     .filter((b: { id: string; name: string }) => b.id !== board.id)
     .map((b: { id: string; name: string }) => b.name)
@@ -148,6 +185,12 @@ function formatContextPrompt(task: any) {
   Board Context:
   - Name: ${board.name}
 
+  Calendar Context:
+  - Matched Highlight: ${calendarContext?.title || "None"}
+  - Highlight Start Date: ${calendarContext?.startDate || "Not set"}
+  - Highlight End Date: ${calendarContext?.endDate || "Not set"}
+  - Reference Due Date for task generation/scheduling: ${calendarContext?.endDate || "Use the task due date if set; otherwise infer from the task and board context"}
+
   Task Context:
   - Title: ${task.title}
   - Current Description: ${task.description || "None"}
@@ -155,7 +198,7 @@ function formatContextPrompt(task: any) {
   - Due Date: ${task.dueDate || "Not set"}`;
 }
 
-export async function aiMakeTaskPerfect(taskId: string) {
+export async function aiMakeTaskPerfect(taskId: string, options?: AiCalendarOptions) {
   const session = await getSession();
   if (!session) return { success: false, error: "Unauthorized" };
 
@@ -163,7 +206,7 @@ export async function aiMakeTaskPerfect(taskId: string) {
     const task = await getTaskContext(taskId);
     if (!task) return { success: false, error: "Task not found" };
 
-    const systemPrompt = `You are a project optimization expert. Use the provided workspace and board context to tailor your suggestions. Propose a professional title, expanded description, 3-5 labels, and 4-6 sub-tasks.
+    const systemPrompt = `You are a project optimization expert. Use the provided workspace, board, and calendar context to tailor your suggestions. Treat "Reference Due Date for task generation/scheduling" as the target due date when proposing scheduling or a suggestedDueDate unless the task already has a more specific due date. Propose a professional title, expanded description, 3-5 labels, and 4-6 sub-tasks.
     Respond with NOTHING except a JSON object:
     {
     "title": "Optimized Title",
@@ -173,7 +216,7 @@ export async function aiMakeTaskPerfect(taskId: string) {
     "suggestedDueDate": "YYYY-MM-DD"
     }`;
 
-    const userPrompt = formatContextPrompt(task);
+    const userPrompt = await formatContextPrompt(task, options);
     const response = await callAI(systemPrompt, userPrompt);
     const data = extractJSON(response);
 
@@ -183,7 +226,7 @@ return { success: false, error: error instanceof Error ? error.message : 'Unknow
 }
 }
 
-export async function aiRewriteTask(taskId: string, tone: 'professional' | 'concise' | 'friendly') {
+export async function aiRewriteTask(taskId: string, tone: 'professional' | 'concise' | 'friendly', options?: AiCalendarOptions) {
 const session = await getSession();
 if (!session) return { success: false, error: "Unauthorized" };
 
@@ -191,8 +234,8 @@ try {
 const task = await getTaskContext(taskId);
 if (!task) return { success: false, error: "Task not found" };
 
-const systemPrompt = `Rewrite this task to be ${tone}. Use the provided workspace and board context for tone and relevance. Respond with NOTHING except JSON: { "title": "...", "description": "..." }`;
-const userPrompt = formatContextPrompt(task);
+const systemPrompt = `Rewrite this task to be ${tone}. Use the provided workspace, board, and calendar context for tone and relevance. Respond with NOTHING except JSON: { "title": "...", "description": "..." }`;
+const userPrompt = await formatContextPrompt(task, options);
 const response = await callAI(systemPrompt, userPrompt);
 const data = extractJSON(response);
 
@@ -210,8 +253,8 @@ try {
 const task = await getTaskContext(taskId);
 if (!task) return { success: false, error: "Task not found" };
 
-const systemPrompt = `Suggest 4-7 relevant labels. Map urgency to "Red", "Yellow", "Green", "Blue", or "Purple". Use workspace/board context for relevance. Respond with NOTHING except JSON: {"tags": ["Tag1", ...]}`;
-const userPrompt = formatContextPrompt(task);
+const systemPrompt = `Suggest 4-7 relevant labels. Map urgency to "Red", "Yellow", "Green", "Blue", or "Purple". Use workspace, board, and calendar context for relevance. Respond with NOTHING except JSON: {"tags": ["Tag1", ...]}`;
+const userPrompt = await formatContextPrompt(task);
 const response = await callAI(systemPrompt, userPrompt);
 const { tags } = extractJSON(response);
 

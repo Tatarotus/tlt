@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTimer } from '@/lib/timer-context';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { parseLabel } from '@/lib/labels';
+import { formatLocalDate } from '@/lib/date-utils';
 
 interface Task {
   id: string;
@@ -67,8 +68,7 @@ function TaskCardComponent({ task, onClick }: TaskCardProps) {
   };
 
   const formattedDueDate = useMemo(() => {
-    if (!task.dueDate) return null;
-    return new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return formatLocalDate(task.dueDate, { month: 'short', day: 'numeric' });
   }, [task.dueDate]);
 
   if (isDragging) {

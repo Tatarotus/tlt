@@ -7,8 +7,15 @@ import KanbanBoard from "@/app/components/KanbanBoard";
 import { BoardHeader } from "@/app/components/ui/BoardHeader";
 import type { List } from "@/lib/types";
 
-export default async function BoardPage({ params }: { params: Promise<{ workspaceSlug: string; boardSlug: string }>; }) {
+export default async function BoardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ workspaceSlug: string; boardSlug: string }>;
+  searchParams: Promise<{ calendarHighlightId?: string }>;
+}) {
   const { workspaceSlug, boardSlug } = await params;
+  const { calendarHighlightId } = await searchParams;
   const session = await getSession();
   if (!session) redirect("/login");
 
@@ -43,7 +50,7 @@ export default async function BoardPage({ params }: { params: Promise<{ workspac
         workspaceSlug={workspace.slug}
       />
 		<div className="flex-1 overflow-hidden">
-			<KanbanBoard initialLists={board.lists as List[]} boardId={board.id} />
+			<KanbanBoard initialLists={board.lists as List[]} boardId={board.id} calendarHighlightId={calendarHighlightId} />
 		</div>
     </div>
   );

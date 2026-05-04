@@ -38,6 +38,7 @@ export const taskManagement = {
           task.id === tempId ? result.task! : task
         )} : list
       ));
+      return result.task; // Return the real task
     } else {
         // Revert on failure
         setLists((prev: List[]) => prev.map((list: List) => 

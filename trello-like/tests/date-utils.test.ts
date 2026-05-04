@@ -1,4 +1,4 @@
-import { toLocalMidnight, toISOLocalDate, parseISOLocal, isDateInRange, safeToISOString } from '../lib/date-utils';
+import { toLocalMidnight, toISOLocalDate, toDateOnlyString, formatLocalDate, parseISOLocal, isDateInRange, safeToISOString } from '../lib/date-utils';
 import { describe, it, expect, jest } from '@jest/globals';
 
 describe('Date Utils', () => {
@@ -23,6 +23,33 @@ describe('Date Utils', () => {
     it('should handle single digit month and day with padding', () => {
       const date = new Date(2023, 8, 5); // Sept 5
       expect(toISOLocalDate(date)).toBe('2023-09-05');
+    });
+  });
+
+  describe('toDateOnlyString', () => {
+    it('preserves a plain YYYY-MM-DD date without applying timezone conversion', () => {
+      expect(toDateOnlyString('2024-05-10')).toBe('2024-05-10');
+    });
+
+    it('extracts the calendar date from ISO date-time strings', () => {
+      expect(toDateOnlyString('2024-05-10T00:00:00.000Z')).toBe('2024-05-10');
+    });
+
+    it('handles Date objects by using UTC parts to avoid timezone shifts', () => {
+      // Create a Date object that is midnight UTC.
+      // In many timezones, this would be the previous day in local time.
+      const date = new Date('2024-05-20T00:00:00.000Z');
+      expect(toDateOnlyString(date)).toBe('2024-05-20');
+    });
+
+    it('returns null for invalid date strings', () => {
+      expect(toDateOnlyString('not-a-date')).toBeNull();
+    });
+  });
+
+  describe('formatLocalDate', () => {
+    it('formats plain date strings as the selected calendar day', () => {
+      expect(formatLocalDate('2024-05-10', { month: 'short', day: 'numeric' }, 'en-US')).toBe('May 10');
     });
   });
 

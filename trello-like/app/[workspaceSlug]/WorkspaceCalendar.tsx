@@ -29,15 +29,17 @@ interface WorkspaceCalendarProps {
 
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
-async function navigateToBoard(title: string, workspaceSlug: string, router: AppRouterInstance) {
+async function navigateToBoard(highlight: Highlight, workspaceSlug: string, router: AppRouterInstance) {
   try {
     const res = await fetch("/api/boards/navigate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ boardName: title, workspaceSlug }),
+      body: JSON.stringify({ boardName: highlight.title, workspaceSlug }),
     });
     const data = await res.json();
-    if (data.success && data.board) router.push(`/${workspaceSlug}/${data.board.slug}`);
+    if (data.success && data.board) {
+      router.push(`/${workspaceSlug}/${data.board.slug}?calendarHighlightId=${highlight.id}`);
+    }
   } catch (err) { console.error("Failed to navigate to board:", err); }
 }
 
@@ -60,7 +62,7 @@ export function WorkspaceCalendar({ workspace, initialHighlights, userId }: Work
       <WorkspaceHeader userId={userId} id={workspace.id} name={workspace.name} slug={workspace.slug} description={workspace.description || ""} backHref="/" backLabel="All Workspaces">
         <ViewTabs workspaceSlug={workspace.slug} currentView="calendar" />
       </WorkspaceHeader>
-      <CalendarView highlights={highlights} workspaceSlug={workspace.slug} onHighlightsChange={refreshHighlights} onHighlightClick={(h) => navigateToBoard(h.title, workspace.slug, router)} />
+      <CalendarView highlights={highlights} workspaceSlug={workspace.slug} onHighlightsChange={refreshHighlights} onHighlightClick={(h) => navigateToBoard(h, workspace.slug, router)} />
     </main>
   );
 }

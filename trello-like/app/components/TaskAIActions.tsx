@@ -7,6 +7,7 @@ interface TaskAIActionsProps {
   task: Task;
   selectedLabels: string[];
   dueDate: string;
+  calendarHighlightId?: string;
   onTitleChange: (_title: string) => void;
   onDescriptionChange: (_description: string) => void;
   onLabelsChange: (_labels: string[]) => void;
@@ -17,6 +18,7 @@ function TaskAIActionsComponent({
   task,
   selectedLabels,
   dueDate,
+  calendarHighlightId,
   onTitleChange,
   onDescriptionChange,
   onLabelsChange,
@@ -25,11 +27,14 @@ function TaskAIActionsComponent({
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  const isTemp = task.id.startsWith('temp-');
+
   const handleMakePerfect = async () => {
+    if (isTemp) return;
     setIsAiThinking(true);
     setAiError(null);
     try {
-      const result = await aiMakeTaskPerfect(task.id);
+      const result = await aiMakeTaskPerfect(task.id, { calendarHighlightId });
       if (result.success && result.data) {
         const d = result.data;
         onTitleChange(d.title);
@@ -52,10 +57,11 @@ function TaskAIActionsComponent({
   };
 
   const handleRewrite = async (tone: 'professional' | 'concise' | 'friendly') => {
+    if (isTemp) return;
     setIsAiThinking(true);
     setAiError(null);
     try {
-      const result = await aiRewriteTask(task.id, tone);
+      const result = await aiRewriteTask(task.id, tone, { calendarHighlightId });
       if (result.success && result.data) {
         onTitleChange(result.data.title);
         onDescriptionChange(result.data.description);
@@ -73,7 +79,7 @@ function TaskAIActionsComponent({
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={handleMakePerfect}
-          disabled={isAiThinking}
+          disabled={isAiThinking || isTemp}
           className="col-span-2 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
         >
           {isAiThinking ? (
@@ -84,19 +90,19 @@ function TaskAIActionsComponent({
           ) : (
             <span className="text-base">✨</span>
           )}
-          Optimize Task
+          {isTemp ? 'Saving task...' : 'Optimize Task'}
         </button>
         <button
           onClick={() => handleRewrite('professional')}
-          disabled={isAiThinking}
-          className="flex items-center justify-center px-3 py-2.5 bg-white border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50 text-gray-700 rounded-xl font-bold text-xs transition-all cursor-pointer"
+          disabled={isAiThinking || isTemp}
+          className="flex items-center justify-center px-3 py-2.5 bg-white border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50 text-gray-700 rounded-xl font-bold text-xs transition-all cursor-pointer disabled:opacity-50"
         >
           💼 Pro
         </button>
         <button
           onClick={() => handleRewrite('concise')}
-          disabled={isAiThinking}
-          className="flex items-center justify-center px-3 py-2.5 bg-white border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50 text-gray-700 rounded-xl font-bold text-xs transition-all cursor-pointer"
+          disabled={isAiThinking || isTemp}
+          className="flex items-center justify-center px-3 py-2.5 bg-white border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50 text-gray-700 rounded-xl font-bold text-xs transition-all cursor-pointer disabled:opacity-50"
         >
           📝 Brief
         </button>
@@ -122,6 +128,7 @@ function areTaskAIActionsPropsEqual(prev: TaskAIActionsProps, next: TaskAIAction
     prev.task.id === next.task.id &&
     sameStringArray(prev.selectedLabels, next.selectedLabels) &&
     prev.dueDate === next.dueDate &&
+    prev.calendarHighlightId === next.calendarHighlightId &&
     prev.onTitleChange === next.onTitleChange &&
     prev.onDescriptionChange === next.onDescriptionChange &&
     prev.onLabelsChange === next.onLabelsChange &&
