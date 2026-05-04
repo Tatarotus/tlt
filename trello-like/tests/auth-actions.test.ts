@@ -68,14 +68,14 @@ describe('auth server actions', () => {
       expect(result).toEqual({ error: 'Invalid credentials' });
     });
 
-    it('logs in successfully', async () => {
-      mockedDbQueryUsersFindFirst.mockResolvedValue({ id: '1', password: 'hashed' });
-      mockCompare.mockResolvedValue(true);
+  it('logs in successfully', async () => {
+    mockedDbQueryUsersFindFirst.mockResolvedValue({ id: '1', password: 'hashed' });
+    mockCompare.mockResolvedValue(true);
 
-      // Note: This test verifies the function completes without throwing
-      // The actual bcrypt mock integration requires ESM module mocking fixes
-      await expect(login(createFormData({ email: 'test@example.com', password: 'password' }))).resolves.toBeDefined();
-    });
+    // Note: This test verifies the function completes without throwing
+    // The actual bcrypt mock integration requires ESM module mocking fixes
+    await expect(login(createFormData({ email: 'test@example.com', password: 'password' }))).resolves.toBeUndefined();
+  });
   });
 
   describe('register', () => {
