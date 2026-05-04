@@ -99,26 +99,25 @@ export async function getDashboardData(range: DashboardRange = 'week') {
 }
 
 function getBarData(allSessions: SessionWithId[]) {
-	const now = new Date();
-	const dailyData: Record<string, Record<string, number>> = {};
+  const now = new Date();
   const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(now.getDate() - (6 - i));
-      return d.toISOString().split('T')[0];
-    });
+    const d = new Date();
+    d.setDate(now.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
+  });
 
-  	const dailyData: Record<string, { date: string; [key: string]: string | number }> = {};
-  	last7Days.forEach(date => { dailyData[date] = { date }; });
-    allSessions.forEach(s => {
-      const dateStr = new Date(s.startTime).toISOString().split('T')[0];
-      if (dailyData[dateStr]) {
-        const end = s.endTime ? new Date(s.endTime) : now;
-        const duration = Math.max(0, (end.getTime() - new Date(s.startTime).getTime()) / (1000 * 60 * 60));
-        dailyData[dateStr][s.category] = (Number(dailyData[dateStr][s.category] || 0)) + duration;
-      }
-    });
-    return Object.values(dailyData);
-  }
+  const dailyData: Record<string, { date: string; [key: string]: string | number }> = {};
+  last7Days.forEach(date => { dailyData[date] = { date }; });
+  allSessions.forEach(s => {
+    const dateStr = new Date(s.startTime).toISOString().split('T')[0];
+    if (dailyData[dateStr]) {
+      const end = s.endTime ? new Date(s.endTime) : now;
+      const duration = Math.max(0, (end.getTime() - new Date(s.startTime).getTime()) / (1000 * 60 * 60));
+      dailyData[dateStr][s.category] = (Number(dailyData[dateStr][s.category] || 0)) + duration;
+    }
+  });
+  return Object.values(dailyData);
+}
 
   function formatDuration(ms: number) {
     const hours = Math.floor(ms / (1000 * 60 * 60));
