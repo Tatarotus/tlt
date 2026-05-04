@@ -1,6 +1,6 @@
 # ADR 004: Exactly One Global Active Timer
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -9,6 +9,14 @@ The desired product behavior is explicit: the user should focus on one task at a
 ## Decision
 
 Allow exactly one active timer globally across the entire product.
+
+## Implementation Status
+
+✅ **Accepted and Implemented**
+- Timer API enforces single active session rule in `trello-like/app/api/timer/start/route.ts`
+- Returns 409 Conflict if timer already running
+- Active timer query checks for `endTime IS NULL` across all sessions
+- UI displays active timer in persistent header component
 
 ## Alternatives Considered
 

@@ -1,6 +1,6 @@
 # ADR 002: Preserve the Existing `tl` Domain with Minimal Integration Surface
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -15,6 +15,14 @@ The existing Rust `tl` domain remains authoritative for time-tracking semantics.
 - add only a lightweight VPS-side listener/service if direct database integration is not reliable enough
 
 A full standalone Rust HTTP API is optional, not required by this architecture.
+
+## Implementation Status
+
+✅ **Accepted - Direct Database Integration Approach**
+- Kanban app writes timer sessions directly to PostgreSQL
+- Session schema designed to be compatible with `tl` expectations
+- Timer rules (single active timer, overlap detection) enforced at database level
+- Rust CLI PostgreSQL support pending implementation
 
 ## Alternatives Considered
 

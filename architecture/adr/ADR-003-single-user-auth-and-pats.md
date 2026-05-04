@@ -1,6 +1,6 @@
 # ADR 003: Single-User v1 with Minimal Auth Changes
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -14,6 +14,15 @@ Use the smallest viable auth model in v1:
 - one logical user account in v1
 - database credentials or environment-based secrets for `tl` connectivity
 - optional bridge authentication may use a simple shared secret if a bridge is added
+
+## Implementation Status
+
+✅ **Accepted and Implemented**
+- Single-user authentication with email/password
+- JWT-based session management in `trello-like/lib/session.ts`
+- Password hashing with bcrypt
+- User isolation at database level via `userId` foreign keys
+- No multi-user or collaboration features in v1
 
 ## Alternatives Considered
 

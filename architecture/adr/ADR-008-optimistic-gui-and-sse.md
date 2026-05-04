@@ -1,6 +1,6 @@
 # ADR 008: Optional Lightweight Timer Bridge for Reliable Kanban Integration
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -16,6 +16,16 @@ Prefer direct integration first. If reliability or coupling becomes a concern, a
 - fetch active timer state
 
 This bridge should write into the same PostgreSQL-backed `tl` schema and remain intentionally narrow.
+
+## Implementation Status
+
+✅ **Accepted - Direct Database Integration**
+- Timer API routes implemented in `trello-like/app/api/timer/`
+- POST `/api/timer/start` - starts new timer session
+- POST `/api/timer/stop` - stops active timer
+- GET `/api/timer/active` - fetches current active timer
+- Direct PostgreSQL writes with proper validation
+- Bridge service deferred pending reliability assessment
 
 ## Alternatives Considered
 

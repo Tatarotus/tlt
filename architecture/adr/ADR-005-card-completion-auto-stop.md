@@ -1,6 +1,6 @@
 # ADR 005: Auto-Stop Only for Timers Originating from the Completed Card
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -9,6 +9,14 @@ Completing a card does not always mean the currently active timer is related to 
 ## Decision
 
 When a card is moved to a terminal list or explicitly marked complete, auto-stop the timer only if the active timer is linked to that exact card. The card detail modal always exposes a manual `Stop Timer` button as the main explicit control.
+
+## Implementation Status
+
+🔄 **Partially Implemented**
+- Timer sessions support `cardId` field for linkage
+- Manual stop button available in card detail modal
+- Auto-stop on card completion pending implementation
+- Requires timer-card provenance to be stored reliably
 
 ## Alternatives Considered
 

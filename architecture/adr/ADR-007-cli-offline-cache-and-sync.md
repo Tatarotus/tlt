@@ -1,6 +1,6 @@
 # ADR 007: Defer CLI Offline Redesign and Keep `tl` Behavior Simple in v1
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -9,6 +9,14 @@ The earlier architecture proposed a new offline cache, sync worker, and replay m
 ## Decision
 
 Do not introduce a new offline cache-and-sync architecture in v1. Keep `tl` behavior as close as possible to today, with the primary required change being PostgreSQL-backed persistence. If offline support becomes necessary later, it should be designed as a separate follow-up after the shared PostgreSQL integration is stable.
+
+## Implementation Status
+
+✅ **Accepted - Online-First Approach**
+- `trello-like` web app is online-first (no offline mode)
+- Rust CLI PostgreSQL support pending
+- No sync states or queue implemented in v1
+- Offline mode deferred to future ADR
 
 ## Alternatives Considered
 

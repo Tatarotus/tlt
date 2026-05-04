@@ -2,76 +2,83 @@
 
 A unified time-tracking and task management system combining a Rust CLI (`tl`) with a Next.js web application.
 
-## Architecture
+## Quick Start
 
-The project consists of two main components:
-
-1. **time-logger** (`tl` CLI) - Rust-based time tracking authority
-   - Real-time stopwatch functionality
-   - Manual time logging
-   - Category-based time organization
-   - Reports, streaks, and goals
-   - PostgreSQL storage
-
-2. **trello-like** (Web App) - Next.js Kanban board with timer integration
-   - Task boards with drag-and-drop
-   - Workspaces and boards organization
-   - Calendar highlights
-   - Integrated timer controls
-   - Dashboard with time analytics
-
-## Setup
-
-### Prerequisites
-
-- Rust (for `tl` CLI)
-- Node.js 18+ and npm (for web app)
-- PostgreSQL database
-
-### Environment Variables
-
-Create `.env` files based on `.env.example` in both directories:
-
-**Root `.env`:**
 ```bash
-DATABASE_URL=postgresql://user:password@localhost:5432/tlt
-JWT_SECRET=your-secret-key
-AI_API_KEY=your-ai-key (optional)
-AI_API_URLS=your-ai-endpoint (optional)
-AI_MODELS=your-models (optional)
-```
-
-### Installation
-
-1. **Clone the repository**
-```bash
+# Clone and setup
 git clone <repository-url>
 cd tlt
-```
 
-2. **Setup time-logger (Rust CLI)**
-```bash
-cd time-logger
-cargo install --path .
-```
-
-3. **Setup trello-like (Next.js app)**
-```bash
+# Setup web app
 cd trello-like
 npm install
 npm run db:push
 npm run dev
+
+# In another terminal, setup CLI
+cd time-logger
+cargo install --path .
 ```
 
-4. **Run the CLI**
-```bash
-cd time-logger
-tl --help
-```
+## Documentation
+
+- **[Architecture Specification](architecture/SPEC.md)** - Complete v1 specification and API reference
+- **[Architecture Decision Records](architecture/adr/)** - Rationale behind architectural choices
+- **[Web App README](trello-like/README.md)** - Next.js application documentation
+- **[CLI README](time-logger/README.md)** - Rust CLI documentation
+
+## Architecture Overview
+
+TLT consists of two integrated components:
+
+1. **`tl` CLI** (Rust) - Command-line time tracking
+   - Start/stop timers: `tl start`, `tl stop`
+   - Manual logging: `tl add`
+   - Reports: `tl report`
+   - Categories, goals, and streaks
+
+2. **Web App** (Next.js) - Kanban board with timer integration
+   - Drag-and-drop task boards
+   - Workspaces and boards organization
+   - Timer controls from task cards
+   - Dashboard with time analytics
+   - Calendar highlights view
+
+Both components share a **PostgreSQL database** as the single source of truth.
+
+## Current Status
+
+### ✅ Implemented
+- PostgreSQL database schema
+- User authentication (single-user mode)
+- Workspace and board management
+- Task CRUD with drag-and-drop
+- Timer start/stop API
+- Dashboard analytics
+- Calendar highlights
+- Tag/label management
+- Comprehensive test suite (229 tests)
+
+### 🔄 In Progress
+- Category-label mapping UI
+- Auto-stop timer on card completion
+- Rust CLI PostgreSQL support
+
+### ⏸️ Deferred
+- Offline mode for CLI
+- Multi-user support
+- PAT system
+
+## Quality Metrics
+
+- **Tests**: 229 passing
+- **Coverage**: 64% (target: 80%)
+- **Mutation Score**: 93.75% (target: 60%)
+- **Linting**: ✅ Pass
+- **Type Checking**: ✅ Pass
+- **Complexity**: ✅ All functions within limits
 
 ## Validation Commands
-
-Run these commands to verify the setup:
 
 ```bash
 # Rust CLI
@@ -84,27 +91,12 @@ cd trello-like
 npm run lint
 npm run typecheck
 npm run build
+npm test
 ```
-
-## Key Features
-
-### Time Logger CLI
-- Start/stop timers with `tl start` and `tl stop`
-- Manual logging with `tl add`
-- Reports with `tl report`
-- Category management
-- Goals and streaks tracking
-
-### Web App
-- Kanban boards with drag-and-drop
-- Timer integration from task cards
-- Dashboard with time analytics
-- Calendar highlights
-- Workspace organization
 
 ## Database Schema
 
-The application uses PostgreSQL with the following key tables:
+Key tables:
 - `users` - User accounts
 - `workspaces` - User workspaces
 - `boards` - Kanban boards
@@ -112,25 +104,35 @@ The application uses PostgreSQL with the following key tables:
 - `tasks` - Task cards
 - `sessions` - Time tracking sessions
 - `categories` - Time categories
+- `tags` - Visual labels
 - `calendar_highlights` - Calendar events
+
+See [SPEC.md](architecture/SPEC.md) for complete schema documentation.
 
 ## Security
 
 - All timer routes require authentication
-- User data is isolated by `userId`
+- User data isolated by `userId`
 - Sessions use JWT cookies
-- Passwords are hashed with bcrypt
+- Passwords hashed with bcrypt
 
 ## Development
 
 ### Quality Gates
-- `cargo test` - Rust tests
-- `npm run lint` - ESLint
-- `npm run typecheck` - TypeScript type checking
-- `npm run build` - Production build
+```bash
+# Run all quality checks
+npm run lint
+npm run typecheck
+npm run quality:complexity
+npm run quality:filesize
+npm run quality:coverage
+npm run quality:mutation
+```
 
 ### Architecture Documents
-See `architecture/` folder for detailed ADRs and specifications.
+See `architecture/` folder for:
+- **SPEC.md** - Complete v1 specification
+- **adr/** - Architecture Decision Records (8 documents)
 
 ## License
 

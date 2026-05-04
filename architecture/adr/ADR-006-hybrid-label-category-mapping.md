@@ -1,6 +1,6 @@
 # ADR 006: Hybrid Mapping Between Kanban Labels and Hierarchical Categories
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -9,6 +9,14 @@ Kanban labels are lightweight and visual, while `tl` categories are semantic and
 ## Decision
 
 Keep visual labels and semantic categories as distinct concepts. Allow labels to suggest categories through configurable mappings, while still allowing explicit hierarchical category assignment on each card.
+
+## Implementation Status
+
+🔄 **Partially Implemented**
+- Categories table created in database schema
+- Label-to-category mapping UI pending
+- Card detail modal supports category selection
+- Session records capture category at time of logging
 
 ## Alternatives Considered
 

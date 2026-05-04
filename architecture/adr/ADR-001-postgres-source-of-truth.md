@@ -1,6 +1,6 @@
 # ADR 001: PostgreSQL as the Time Logger Source of Truth
 
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -9,6 +9,14 @@ The current `tl` application uses local SQLite storage. The clarified integratio
 ## Decision
 
 Use PostgreSQL on the VPS as the canonical datastore for the `tl` domain. The local `tl` SQLite database becomes a migration source only. The Kanban application may keep its current persistence model in v1, but all timer sessions written from Kanban must land in the `tl` PostgreSQL schema.
+
+## Implementation Status
+
+✅ **Accepted and Implemented**
+- PostgreSQL schema created in `trello-like/db/schema.ts`
+- Drizzle ORM configured for database access
+- Timer sessions table supports both CLI and Kanban writes
+- Migration path documented for existing SQLite data
 
 ## Alternatives Considered
 
