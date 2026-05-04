@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Image as ImageIcon, Settings, Trash2, X } from "lucide-react";
 import { updateBoard } from "@/app/actions/board-actions";
+import { updateWorkspace } from "@/app/actions/workspace-actions";
 import { BOARD_BACKGROUND_PATTERNS, getBoardBackgroundPattern } from "@/lib/board-backgrounds";
 
 interface BoardCardProps {
@@ -55,20 +56,25 @@ export function BoardCard({
     setIsSaving(true);
     setError("");
 
-    const result = await updateBoard(id, {
+    const updates = {
       backgroundPattern: selectedPattern,
       backgroundImageUrl: imageUrl,
-    });
+    };
+
+    const result = variant === "workspace" 
+      ? await updateWorkspace(id, updates)
+      : await updateBoard(id, updates);
 
     if (result.success) {
-      setAppliedPattern(result.board?.backgroundPattern || "none");
-      setAppliedImageUrl(result.board?.backgroundImageUrl || "");
-      setSelectedPattern(result.board?.backgroundPattern || "none");
-      setImageUrl(result.board?.backgroundImageUrl || "");
+      const data = (variant === "workspace" ? (result as any).workspace : (result as any).board);
+      setAppliedPattern(data?.backgroundPattern || "none");
+      setAppliedImageUrl(data?.backgroundImageUrl || "");
+      setSelectedPattern(data?.backgroundPattern || "none");
+      setImageUrl(data?.backgroundImageUrl || "");
       setIsSettingsOpen(false);
       router.refresh();
     } else {
-      setError(result.error || "Failed to update tile background");
+      setError(result.error || `Failed to update ${variant} tile background`);
     }
 
     setIsSaving(false);
@@ -95,22 +101,20 @@ export function BoardCard({
         </div>
       </Link>
 
-      {canCustomize && (
-        <button
-          type="button"
-          onClick={() => setIsSettingsOpen(true)}
-          className="absolute top-3 right-3 z-20 rounded-md bg-white/90 p-1.5 text-gray-500 opacity-0 shadow-sm ring-1 ring-gray-200 transition-colors hover:bg-white hover:text-gray-900 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/30"
-          aria-label={`Customize ${name} tile background`}
-          title="Tile background settings"
-        >
-          <Settings size={14} aria-hidden="true" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setIsSettingsOpen(true)}
+        className="absolute top-3 right-3 z-20 rounded-md bg-white/90 p-1.5 text-gray-500 opacity-0 shadow-sm ring-1 ring-gray-200 transition-colors hover:bg-white hover:text-gray-900 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/30"
+        aria-label={`Customize ${name} tile background`}
+        title="Tile background settings"
+      >
+        <Settings size={14} aria-hidden="true" />
+      </button>
       
       {deleteAction && (
         <form 
           action={deleteAction} 
-          className={`absolute top-3 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 ${canCustomize ? "right-12" : "right-3"}`}
+          className="absolute top-3 right-12 z-20 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
         >
           <button 
             type="submit"

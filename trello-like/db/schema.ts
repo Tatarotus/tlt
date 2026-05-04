@@ -15,6 +15,8 @@ export const workspaces = pgTable('workspaces', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   description: text('description'),
+  backgroundPattern: text('background_pattern').default('none'),
+  backgroundImageUrl: text('background_image_url'),
 });
 
 export const boards = pgTable('boards', {

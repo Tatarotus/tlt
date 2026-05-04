@@ -67,6 +67,8 @@ export default async function Home() {
                 revalidatePath("/");
               }}
               variant="workspace"
+              backgroundPattern={ws.backgroundPattern}
+              backgroundImageUrl={ws.backgroundImageUrl}
             />
           ))}
 

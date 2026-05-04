@@ -61,7 +61,7 @@ export async function createWorkspace(name: string, description?: string, slug?:
 
 export async function updateWorkspace(
   workspaceId: string, 
-  data: { name?: string; description?: string; slug?: string }
+  data: { name?: string; description?: string; slug?: string; backgroundPattern?: string; backgroundImageUrl?: string }
 ) {
   const session = await getSession();
   if (!session) return { success: false, error: "Unauthorized" };
@@ -74,7 +74,7 @@ export async function updateWorkspace(
 
     if (!workspace) return { success: false, error: "Unauthorized or not found" };
 
-    const updateData: { name?: string; description?: string; slug?: string } = { ...data };
+    const updateData: { name?: string; description?: string; slug?: string; backgroundPattern?: string; backgroundImageUrl?: string } = { ...data };
     if (data.slug) {
       updateData.slug = slugify(data.slug);
     }
