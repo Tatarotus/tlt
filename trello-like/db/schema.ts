@@ -22,6 +22,8 @@ export const boards = pgTable('boards', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  backgroundPattern: text('background_pattern').default('none'),
+  backgroundImageUrl: text('background_image_url'),
 });
 
 export const lists = pgTable('lists', {

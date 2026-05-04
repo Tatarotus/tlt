@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { boards, workspaces, lists, tasks } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
+import { isBoardBackgroundPattern } from '@/lib/board-backgrounds';
 
 function slugify(text: string) {
   return text
@@ -44,7 +45,7 @@ return { success: false, error: "Database insert failed" };
 
 export async function updateBoard(
 boardId: string,
-data: { name?: string; slug?: string }
+data: { name?: string; slug?: string; backgroundPattern?: string; backgroundImageUrl?: string | null }
 ) {
 const session = await getSession();
 if (!session) return { success: false, error: "Unauthorized" };
@@ -59,9 +60,40 @@ const board = await db.query.boards.findFirst({
 if (!board || (board.workspace as any)?.userId !== session.userId) {
   return { success: false, error: "Unauthorized or not found" };
 }
-const updateData: { name?: string; slug?: string } = { ...data };
+const updateData: {
+  name?: string;
+  slug?: string;
+  backgroundPattern?: string;
+  backgroundImageUrl?: string | null;
+} = {};
+if (data.name !== undefined) {
+  updateData.name = data.name;
+}
 if (data.slug) {
 updateData.slug = slugify(data.slug);
+}
+if (data.backgroundPattern !== undefined) {
+  if (!isBoardBackgroundPattern(data.backgroundPattern)) {
+    return { success: false, error: "Invalid background pattern" };
+  }
+  updateData.backgroundPattern = data.backgroundPattern;
+}
+if (data.backgroundImageUrl !== undefined) {
+  const url = data.backgroundImageUrl?.trim();
+
+  if (!url) {
+    updateData.backgroundImageUrl = null;
+  } else {
+    try {
+      const parsedUrl = new URL(url);
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return { success: false, error: "Background image URL must use http or https" };
+      }
+      updateData.backgroundImageUrl = parsedUrl.toString();
+    } catch {
+      return { success: false, error: "Invalid background image URL" };
+    }
+  }
 }
 
     const updated = await db.update(boards)

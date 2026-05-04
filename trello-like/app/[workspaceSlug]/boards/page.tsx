@@ -55,7 +55,14 @@ export default async function BoardsPage({ params }: { params: Promise<{ workspa
       <Container>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
           {workspace.boards.map((board) => (
-            <BoardCard key={board.id} id={board.id} name={board.name} href={`/${workspaceSlug}/${board.slug}`} variant="board"
+            <BoardCard
+              key={board.id}
+              id={board.id}
+              name={board.name}
+              href={`/${workspaceSlug}/${board.slug}`}
+              variant="board"
+              backgroundPattern={board.backgroundPattern}
+              backgroundImageUrl={board.backgroundImageUrl}
               deleteAction={async () => { "use server"; await deleteBoard(board.id); revalidatePath(`/${workspaceSlug}/boards`); }}
             />
           ))}
