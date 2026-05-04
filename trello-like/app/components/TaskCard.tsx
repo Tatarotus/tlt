@@ -2,7 +2,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTimer } from '@/lib/timer-context';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { parseLabel } from '@/lib/labels';
 
 interface Task {
@@ -33,7 +33,7 @@ function formatDuration(seconds: number): string {
   return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+function TaskCardComponent({ task, onClick }: TaskCardProps) {
   const { activeTimer } = useTimer();
   const [elapsed, setElapsed] = useState(0);
   
@@ -65,6 +65,11 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     transform: CSS.Translate.toString(transform),
     transition,
   };
+
+  const formattedDueDate = useMemo(() => {
+    if (!task.dueDate) return null;
+    return new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }, [task.dueDate]);
 
   if (isDragging) {
     return (
@@ -132,10 +137,10 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           {task.description && (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           )}
-          {task.dueDate && (
+          {formattedDueDate && (
             <div className="flex items-center gap-1 text-[10px] font-bold uppercase bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              {formattedDueDate}
             </div>
           )}
           {task.children && task.children.length > 0 && (
@@ -149,3 +154,6 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     </div>
   );
 }
+
+export const TaskCard = memo(TaskCardComponent);
+TaskCard.displayName = 'TaskCard';

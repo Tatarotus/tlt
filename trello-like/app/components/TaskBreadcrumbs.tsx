@@ -1,4 +1,5 @@
 "use client";
+import { memo } from 'react';
 import { Task } from '@/lib/types';
 
 interface TaskBreadcrumbsProps {
@@ -7,7 +8,7 @@ interface TaskBreadcrumbsProps {
   onNavigate: (_index: number) => void;
 }
 
-export function TaskBreadcrumbs({ taskStack, onBack, onNavigate }: TaskBreadcrumbsProps) {
+function TaskBreadcrumbsComponent({ taskStack, onBack, onNavigate }: TaskBreadcrumbsProps) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
       {taskStack.length > 1 && (
@@ -45,3 +46,14 @@ export function TaskBreadcrumbs({ taskStack, onBack, onNavigate }: TaskBreadcrum
     </div>
   );
 }
+
+function areTaskBreadcrumbsPropsEqual(prev: TaskBreadcrumbsProps, next: TaskBreadcrumbsProps) {
+  return (
+    prev.taskStack === next.taskStack &&
+    prev.onBack === next.onBack &&
+    prev.onNavigate === next.onNavigate
+  );
+}
+
+export const TaskBreadcrumbs = memo(TaskBreadcrumbsComponent, areTaskBreadcrumbsPropsEqual);
+TaskBreadcrumbs.displayName = 'TaskBreadcrumbs';

@@ -1,9 +1,10 @@
 "use client"
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   DndContext, 
   closestCorners, 
   DragEndEvent, 
+  DragOverEvent,
   DragStartEvent,
   DragOverlay,
   defaultDropAnimationSideEffects,
@@ -121,16 +122,52 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
     setLists(initialLists);
   }, [initialLists]);
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
     const task = findTask(String(active.id), lists);
     if (task) setActiveTask(task);
-  };
+  }, [lists]);
 
-  const handleDragEndEvent = async (event: DragEndEvent) => {
+  const handleDragOverEvent = useCallback((event: DragOverEvent) => {
+    handleDragOver(event.active, event.over, lists, setLists);
+  }, [lists]);
+
+  const handleDragEndEvent = useCallback(async (event: DragEndEvent) => {
     await handleDragEnd(event, lists, setLists, stopTimer);
     setActiveTask(null);
-  };
+  }, [lists, stopTimer]);
+
+  const handleAddTask = useCallback((listId: string, title: string) => {
+    taskManagement.handleAddTask(listId, title, lists, setLists, createTask);
+  }, [lists]);
+
+  const handleRenameList = useCallback((listId: string, newTitle: string) => {
+    listManagement.handleRenameList(listId, newTitle, lists, setLists, updateListTitle);
+  }, [lists]);
+
+  const handleDeleteList = useCallback((listId: string) => {
+    listManagement.handleDeleteList(listId, lists, setLists, deleteList);
+  }, [lists]);
+
+  const handleTaskClick = useCallback((task: Task) => {
+    setSelectedTask(task);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedTask(null);
+  }, []);
+
+  const handleSaveTask = useCallback((taskId: string, updates: Partial<Task>) => (
+    taskManagement.handleUpdateTask(taskId, updates, lists, setLists, updateTask)
+  ), [lists]);
+
+  const handleDeleteTask = useCallback((taskId: string) => (
+    taskManagement.handleDeleteTask(taskId, lists, setLists, selectedTask, setSelectedTask, deleteTask)
+  ), [lists, selectedTask]);
+
+  const handleSubtasksChange = useCallback((parentId: string, newSubtasks: Task[]) => {
+    taskManagement.handleSubtasksChange(parentId, newSubtasks, lists, setLists);
+  }, [lists]);
 
   if (!isMounted) return null;
 
@@ -139,7 +176,7 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
       sensors={sensors}
       collisionDetection={closestCorners} 
       onDragStart={handleDragStart} 
-      onDragOver={(event) => handleDragOver(event.active, event.over, lists, setLists)} 
+      onDragOver={handleDragOverEvent} 
       onDragEnd={handleDragEndEvent}
     >
       <div className="flex gap-6 items-start overflow-x-auto h-full px-8 py-8 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
@@ -148,16 +185,10 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
             key={list.id} 
             list={list} 
             tasks={list.tasks}
-            onAddTask={(listId, title) => taskManagement.handleAddTask(
-              listId, title, lists, setLists, createTask
-            )} 
-            onRenameList={(listId, newTitle) => listManagement.handleRenameList(
-              listId, newTitle, lists, setLists, updateListTitle
-            )} 
-            onDeleteList={(listId) => listManagement.handleDeleteList(
-              listId, lists, setLists, deleteList
-            )}
-            onTaskClick={setSelectedTask}
+            onAddTask={handleAddTask}
+            onRenameList={handleRenameList}
+            onDeleteList={handleDeleteList}
+            onTaskClick={handleTaskClick}
           />
         ))}
 
@@ -213,16 +244,10 @@ export default function KanbanBoard({ initialLists, boardId }: { initialLists: L
           <TaskDetailModal 
             task={selectedTask}
             isOpen={!!selectedTask}
-            onClose={() => setSelectedTask(null)}
-            onSave={(taskId, updates) => taskManagement.handleUpdateTask(
-              taskId, updates, lists, setLists, updateTask
-            )}
-            onDelete={(taskId) => taskManagement.handleDeleteTask(
-              taskId, lists, setLists, selectedTask, setSelectedTask, deleteTask
-            )}
-            onSubtasksChange={(parentId, newSubtasks) => taskManagement.handleSubtasksChange(
-              parentId, newSubtasks, lists, setLists
-            )}
+            onClose={handleCloseModal}
+            onSave={handleSaveTask}
+            onDelete={handleDeleteTask}
+            onSubtasksChange={handleSubtasksChange}
           />
       )}
     </DndContext>

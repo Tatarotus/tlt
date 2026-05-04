@@ -34,12 +34,25 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
   const [proposedSubtaskTitles, setProposedSubtaskTitles] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   const fetchSubtasks = useCallback(async (taskId: string) => {
     const result = await getSubTasks(taskId);
@@ -59,9 +72,7 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
   }, [currentTask, fetchSubtasks]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  if (!isOpen) return null;
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
     const updates = { title, description, dueDate: dueDate || null, labels: selectedLabels, completed };
 
@@ -79,14 +90,26 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
 
     setTaskStack(prev => prev.map(t => t.id === currentTask.id ? { ...t, ...updates } : t));
     setIsSaving(false);
-  };
+  }, [
+    completed,
+    currentTask.id,
+    currentTask.listId,
+    description,
+    dueDate,
+    onSave,
+    onSubtasksChange,
+    proposedSubtaskTitles,
+    selectedLabels,
+    subtasks,
+    title,
+  ]);
 
-  const handleToggleCompleted = (_e: React.MouseEvent) => {
+  const handleToggleCompleted = useCallback((_e: React.MouseEvent) => {
     const newCompletedState = !completed;
     setCompleted(newCompletedState);
-  };
+  }, [completed]);
 
-  const handleToggleSubtaskCompleted = async (stId: string, e: React.MouseEvent) => {
+  const handleToggleSubtaskCompleted = useCallback(async (stId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const st = subtasks.find(s => s.id === stId);
     if (!st) return;
@@ -95,18 +118,18 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
     setSubtasks(newSubtasks);
     onSubtasksChange?.(currentTask.id, newSubtasks);
     await updateTask(stId, { completed: newCompleted });
-  };
+  }, [currentTask.id, onSubtasksChange, subtasks]);
 
-  const handleDeleteSubtask = async (stId: string, e: React.MouseEvent) => {
+  const handleDeleteSubtask = useCallback(async (stId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Delete this sub-task?')) return;
     const newSubtasks = subtasks.filter(s => s.id !== stId);
     setSubtasks(newSubtasks);
     onSubtasksChange?.(currentTask.id, newSubtasks);
     await deleteTask(stId);
-  };
+  }, [currentTask.id, onSubtasksChange, subtasks]);
 
-  const handleAddSubtask = async (e: React.FormEvent) => {
+  const handleAddSubtask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
     const result = await createTask(newSubtaskTitle, currentTask.listId, subtasks.length, currentTask.id);
@@ -117,9 +140,9 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
       setNewSubtaskTitle('');
       setIsAddingSubtask(false);
     }
-  };
+  }, [currentTask.id, currentTask.listId, newSubtaskTitle, onSubtasksChange, subtasks]);
 
-  const handleProposedSubtasksSave = async () => {
+  const handleProposedSubtasksSave = useCallback(async () => {
     if (proposedSubtaskTitles.length > 0) {
       const res = await createBatchSubtasks(currentTask.id, currentTask.listId, proposedSubtaskTitles);
       if (res.success && res.subtasks) {
@@ -129,20 +152,25 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
         setProposedSubtaskTitles([]);
       }
     }
-  };
+  }, [currentTask.id, currentTask.listId, onSubtasksChange, proposedSubtaskTitles, subtasks]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     onDelete(currentTask.id);
     if (taskStack.length > 1) {
       setTaskStack(prev => prev.slice(0, -1));
     }
-  };
+  }, [currentTask.id, onDelete, taskStack.length]);
 
-  const drillDown = (task: Task) => setTaskStack(prev => [...prev, task]);
-  const goBack = () => taskStack.length > 1 && setTaskStack(prev => prev.slice(0, -1));
+  const drillDown = useCallback((task: Task) => setTaskStack(prev => [...prev, task]), []);
+  const goBack = useCallback(() => taskStack.length > 1 && setTaskStack(prev => prev.slice(0, -1)), [taskStack.length]);
+  const handleBreadcrumbNavigate = useCallback((index: number) => {
+    setTaskStack(prev => prev.slice(0, index + 1));
+  }, []);
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-2 sm:p-4 animate-in fade-in duration-300">
       <div
         className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 transition-all w-full max-w-5xl max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
@@ -152,7 +180,7 @@ export function TaskDetailModal({ task: initialTask, isOpen, onClose, onSave, on
           <TaskBreadcrumbs 
             taskStack={taskStack} 
             onBack={goBack} 
-            onNavigate={(index) => setTaskStack(prev => prev.slice(0, index + 1))} 
+            onNavigate={handleBreadcrumbNavigate} 
           />
           <button
             onClick={onClose}

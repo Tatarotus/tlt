@@ -1,4 +1,5 @@
 "use client";
+import { memo } from 'react';
 import { Input } from './ui/Input';
 import { Task } from '@/lib/types';
 
@@ -15,7 +16,7 @@ interface TaskBasicInfoProps {
   layout?: 'main' | 'sidebar';
 }
 
-export function TaskBasicInfo({
+function TaskBasicInfoComponent({
   title,
   description,
   dueDate,
@@ -108,5 +109,29 @@ export function TaskBasicInfo({
     </div>
   );
 }
+
+function areTaskBasicInfoPropsEqual(prev: TaskBasicInfoProps, next: TaskBasicInfoProps) {
+  if (prev.layout !== next.layout) return false;
+
+  if (next.layout === 'sidebar') {
+    return (
+      prev.dueDate === next.dueDate &&
+      prev.completed === next.completed &&
+      prev.onDueDateChange === next.onDueDateChange &&
+      prev.onCompletedChange === next.onCompletedChange
+    );
+  }
+
+  return (
+    prev.title === next.title &&
+    prev.description === next.description &&
+    prev.completed === next.completed &&
+    prev.onTitleChange === next.onTitleChange &&
+    prev.onDescriptionChange === next.onDescriptionChange
+  );
+}
+
+export const TaskBasicInfo = memo(TaskBasicInfoComponent, areTaskBasicInfoPropsEqual);
+TaskBasicInfo.displayName = 'TaskBasicInfo';
 
 export default TaskBasicInfo;

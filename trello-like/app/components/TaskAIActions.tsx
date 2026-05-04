@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Task } from '@/lib/types';
 import { aiMakeTaskPerfect, aiRewriteTask } from '../actions/ai-actions';
 
@@ -13,7 +13,7 @@ interface TaskAIActionsProps {
   onDueDateChange: (_dueDate: string) => void;
 }
 
-export function TaskAIActions({
+function TaskAIActionsComponent({
   task,
   selectedLabels,
   dueDate,
@@ -110,5 +110,26 @@ export function TaskAIActions({
     </div>
   );
 }
+
+function sameStringArray(prev: string[], next: string[]) {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  return prev.every((value, index) => value === next[index]);
+}
+
+function areTaskAIActionsPropsEqual(prev: TaskAIActionsProps, next: TaskAIActionsProps) {
+  return (
+    prev.task.id === next.task.id &&
+    sameStringArray(prev.selectedLabels, next.selectedLabels) &&
+    prev.dueDate === next.dueDate &&
+    prev.onTitleChange === next.onTitleChange &&
+    prev.onDescriptionChange === next.onDescriptionChange &&
+    prev.onLabelsChange === next.onLabelsChange &&
+    prev.onDueDateChange === next.onDueDateChange
+  );
+}
+
+export const TaskAIActions = memo(TaskAIActionsComponent, areTaskAIActionsPropsEqual);
+TaskAIActions.displayName = 'TaskAIActions';
 
 export default TaskAIActions;

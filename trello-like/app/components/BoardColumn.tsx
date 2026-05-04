@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { TaskCard } from './TaskCard';
 import { Task } from '@/lib/types';
@@ -63,7 +63,7 @@ function AddCardForm({ isAdding, newTaskTitle, setNewTaskTitle, onSubmit, setIsA
   );
 }
 
-export function BoardColumn({ list, tasks, onAddTask, onRenameList, onDeleteList, onTaskClick }: BoardColumnProps) {
+function BoardColumnComponent({ list, tasks, onAddTask, onRenameList, onDeleteList, onTaskClick }: BoardColumnProps) {
   const { setNodeRef } = useDroppable({ id: list.id });
   const [isAdding, setIsAdding] = useState(false), [newTaskTitle, setNewTaskTitle] = useState(""), [isEditingTitle, setIsEditingTitle] = useState(false), [listTitle, setListTitle] = useState(list.title);
   const handleRenameSubmit = () => { setIsEditingTitle(false); const t = listTitle.trim(); if (t === "") onDeleteList(list.id); else if (t !== list.title) onRenameList(list.id, t); else setListTitle(list.title); };
@@ -79,3 +79,17 @@ export function BoardColumn({ list, tasks, onAddTask, onRenameList, onDeleteList
     </div>
   );
 }
+
+function areBoardColumnPropsEqual(prev: BoardColumnProps, next: BoardColumnProps) {
+  return (
+    prev.list === next.list &&
+    prev.tasks === next.tasks &&
+    prev.onAddTask === next.onAddTask &&
+    prev.onRenameList === next.onRenameList &&
+    prev.onDeleteList === next.onDeleteList &&
+    prev.onTaskClick === next.onTaskClick
+  );
+}
+
+export const BoardColumn = memo(BoardColumnComponent, areBoardColumnPropsEqual);
+BoardColumn.displayName = 'BoardColumn';

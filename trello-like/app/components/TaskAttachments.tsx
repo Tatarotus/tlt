@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Task } from '@/lib/types';
 import { TimerButton } from './TimerButton';
 import { createColoredLabel, LABEL_COLOR_OPTIONS, LabelColorName, parseLabel } from '@/lib/labels';
@@ -23,7 +23,19 @@ interface TaskAttachmentsProps {
   layout?: 'subtasks-only' | 'labels-timer';
 }
 
-export function TaskAttachments({
+function sameStringArray(prev: string[], next: string[]) {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  return prev.every((value, index) => value === next[index]);
+}
+
+function sameTaskArray(prev: Task[], next: Task[]) {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  return prev.every((task, index) => task === next[index]);
+}
+
+function TaskAttachmentsComponent({
   task,
   selectedLabels,
   subtasks,
@@ -266,5 +278,36 @@ export function TaskAttachments({
     </div>
   );
 }
+
+function areTaskAttachmentsPropsEqual(prev: TaskAttachmentsProps, next: TaskAttachmentsProps) {
+  if (prev.layout !== next.layout) return false;
+
+  if (next.layout === 'labels-timer') {
+    return (
+      prev.task.id === next.task.id &&
+      prev.task.title === next.task.title &&
+      sameStringArray(prev.selectedLabels, next.selectedLabels) &&
+      prev.onLabelsChange === next.onLabelsChange
+    );
+  }
+
+  return (
+    prev.task.id === next.task.id &&
+    sameTaskArray(prev.subtasks, next.subtasks) &&
+    sameStringArray(prev.proposedSubtaskTitles, next.proposedSubtaskTitles) &&
+    prev.newSubtaskTitle === next.newSubtaskTitle &&
+    prev.isAddingSubtask === next.isAddingSubtask &&
+    prev.onDrillDown === next.onDrillDown &&
+    prev.onToggleSubtaskCompleted === next.onToggleSubtaskCompleted &&
+    prev.onDeleteSubtask === next.onDeleteSubtask &&
+    prev.onAddSubtask === next.onAddSubtask &&
+    prev.onNewSubtaskTitleChange === next.onNewSubtaskTitleChange &&
+    prev.setIsAddingSubtask === next.setIsAddingSubtask &&
+    prev.onProposedSubtasksChange === next.onProposedSubtasksChange
+  );
+}
+
+export const TaskAttachments = memo(TaskAttachmentsComponent, areTaskAttachmentsPropsEqual);
+TaskAttachments.displayName = 'TaskAttachments';
 
 export default TaskAttachments;

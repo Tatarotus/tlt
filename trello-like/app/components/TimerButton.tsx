@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import { useTimer } from "@/lib/timer-context";
 import { Button } from "./ui/Button";
 
@@ -20,7 +20,7 @@ function formatDuration(seconds: number): string {
   return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function TimerButton({ cardId, cardTitle, className }: TimerButtonProps) {
+function TimerButtonComponent({ cardId, cardTitle, className }: TimerButtonProps) {
   const { activeTimer, loading, startTimer, stopTimer } = useTimer();
   const [showPopover, setShowPopover] = useState(false);
   const [category, setCategory] = useState("");
@@ -195,3 +195,6 @@ export function TimerButton({ cardId, cardTitle, className }: TimerButtonProps) 
     </Button>
   );
 }
+
+export const TimerButton = memo(TimerButtonComponent);
+TimerButton.displayName = "TimerButton";

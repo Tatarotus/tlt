@@ -1,4 +1,5 @@
 "use client";
+import { memo } from 'react';
 import { Task } from '@/lib/types';
 
 interface TaskActionsProps {
@@ -12,7 +13,7 @@ interface TaskActionsProps {
   layout?: 'sidebar' | 'footer';
 }
 
-export function TaskActions({
+function TaskActionsComponent({
   onDelete,
   proposedSubtaskTitles,
   onProposedSubtasksSave,
@@ -51,5 +52,16 @@ export function TaskActions({
     </div>
   );
 }
+
+function areTaskActionsPropsEqual(prev: TaskActionsProps, next: TaskActionsProps) {
+  return (
+    prev.onDelete === next.onDelete &&
+    prev.onProposedSubtasksSave === next.onProposedSubtasksSave &&
+    prev.proposedSubtaskTitles === next.proposedSubtaskTitles
+  );
+}
+
+export const TaskActions = memo(TaskActionsComponent, areTaskActionsPropsEqual);
+TaskActions.displayName = 'TaskActions';
 
 export default TaskActions;
