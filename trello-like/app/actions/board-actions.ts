@@ -78,23 +78,25 @@ if (data.backgroundPattern !== undefined) {
   }
   updateData.backgroundPattern = data.backgroundPattern;
 }
-if (data.backgroundImageUrl !== undefined) {
-  const url = data.backgroundImageUrl?.trim();
+  if (data.backgroundImageUrl !== undefined) {
+    const url = data.backgroundImageUrl?.trim();
 
-  if (!url) {
-    updateData.backgroundImageUrl = null;
-  } else {
-    try {
-      const parsedUrl = new URL(url);
+    if (!url) {
+      updateData.backgroundImageUrl = null;
+    } else {
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        return { success: false, error: "Invalid background image URL" };
+      }
+
       if (!["http:", "https:"].includes(parsedUrl.protocol)) {
         return { success: false, error: "Background image URL must use http or https" };
       }
       updateData.backgroundImageUrl = parsedUrl.toString();
-    } catch {
-      return { success: false, error: "Invalid background image URL" };
     }
   }
-}
 
     const updated = await db.update(boards)
       .set(updateData)
