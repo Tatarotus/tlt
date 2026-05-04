@@ -1,6 +1,29 @@
 import { jest } from '@jest/globals';
+
+// Mock the session and db modules
+const mockGetSession = jest.fn();
+
+jest.mock('@/lib/session', () => ({
+  getSession: mockGetSession,
+}));
+
+jest.mock('@/db', () => ({
+  db: {
+    select: jest.fn(),
+    insert: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    transaction: jest.fn(),
+    query: {
+      workspaces: { findFirst: jest.fn() },
+      tasks: { findMany: jest.fn() },
+      tags: { findMany: jest.fn() },
+      calendarHighlights: { findMany: jest.fn(), findFirst: jest.fn() },
+    },
+  },
+}));
+
 import { db } from '@/db';
-import { getSession } from '@/lib/session';
 
 export type MockControl = {
   mockResolvedValue: (_value: unknown) => void;
@@ -34,7 +57,7 @@ export type DbMock = typeof db & {
 };
 
 export const mockedDb = db as DbMock;
-export const mockedGetSession = getSession as unknown as MockControl;
+export const mockedGetSession = mockGetSession as unknown as MockControl;
 
 export function authorize() {
   mockedGetSession.mockResolvedValue({ userId: 'user-1' });

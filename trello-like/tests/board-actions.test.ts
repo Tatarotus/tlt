@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { createBoard, updateBoard, deleteBoard } from '../app/actions/board-actions';
+import { createBoard, updateBoard } from '../app/actions/board-actions';
 import { db } from '@/db';
 import { getSession } from '@/lib/session';
 

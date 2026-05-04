@@ -1,25 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { db } from '@/db';
-import { authorize, unauthorize } from './__helpers__/mocks';
+import { authorize, unauthorize, mockedDb } from './__helpers__/mocks';
 
-jest.mock('@/db', () => ({
-  db: {
-    select: jest.fn(),
-    insert: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    query: {
-      workspaces: { findFirst: jest.fn() },
-      tasks: { findMany: jest.fn() },
-      tags: { findMany: jest.fn() },
-      calendarHighlights: { findMany: jest.fn(), findFirst: jest.fn() },
-    },
-  },
-}));
-
-jest.mock('@/lib/session', () => ({
-  getSession: jest.fn(),
-}));
+const db = mockedDb;
 
 function createMockRequest(body: unknown = {}, searchParams?: URLSearchParams) {
   return {
