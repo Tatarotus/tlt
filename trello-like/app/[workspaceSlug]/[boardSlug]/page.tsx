@@ -4,18 +4,8 @@ import { eq, and, isNull, asc } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import KanbanBoard from "@/app/components/KanbanBoard";
+import { BoardHeader } from "@/app/components/ui/BoardHeader";
 import type { List } from "@/lib/types";
-
-function BoardHeader({ boardName, workspaceName }: { boardName: string; workspaceName: string }) {
-  return (
-    <div className="p-4 border-b flex items-center justify-between bg-background/50 backdrop-blur-sm sticky top-0 z-10">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">{boardName}</h1>
-        <p className="text-sm text-muted-foreground">{workspaceName} / {boardName}</p>
-      </div>
-    </div>
-  );
-}
 
 export default async function BoardPage({ params }: { params: Promise<{ workspaceSlug: string; boardSlug: string }>; }) {
   const { workspaceSlug, boardSlug } = await params;
@@ -44,7 +34,14 @@ export default async function BoardPage({ params }: { params: Promise<{ workspac
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <BoardHeader boardName={board.name} workspaceName={workspace.name} />
+      <BoardHeader
+        userId={session.userId}
+        boardId={board.id}
+        boardName={board.name}
+        boardSlug={board.slug}
+        workspaceName={workspace.name}
+        workspaceSlug={workspace.slug}
+      />
 		<div className="flex-1 overflow-hidden">
 			<KanbanBoard initialLists={board.lists as List[]} boardId={board.id} />
 		</div>
